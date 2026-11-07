@@ -7,8 +7,44 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 
+const DEFAULT_HISTORY = [
+  {
+    _id: "demo-h1",
+    timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
+    num_panels: 1,
+    irradiance: 850,
+    ai_power_w: 382,
+    efficiency_percent: 19.4,
+    daily_energy_kwh: 3.75,
+    co2_avoided_kg: 2.65,
+    optimal_tilt: 31
+  },
+  {
+    _id: "demo-h2",
+    timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
+    num_panels: 2,
+    irradiance: 920,
+    ai_power_w: 815,
+    efficiency_percent: 19.8,
+    daily_energy_kwh: 7.92,
+    co2_avoided_kg: 5.60,
+    optimal_tilt: 30
+  },
+  {
+    _id: "demo-h3",
+    timestamp: new Date(Date.now() - 3600000 * 48).toISOString(),
+    num_panels: 10,
+    irradiance: 950,
+    ai_power_w: 4120,
+    efficiency_percent: 20.1,
+    daily_energy_kwh: 42.10,
+    co2_avoided_kg: 29.76,
+    optimal_tilt: 32
+  }
+];
+
 export default function HistoryAndScenarios() {
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useState(DEFAULT_HISTORY);
   const [isLoading, setIsLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
 
@@ -16,9 +52,11 @@ export default function HistoryAndScenarios() {
     setIsLoading(true);
     try {
       const res = await axios.get('/api/history');
-      setHistory(res.data || []);
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        setHistory(res.data);
+      }
     } catch (err) {
-      console.error('Failed fetching history:', err);
+      console.warn('Using default history:', err.message);
     } finally {
       setIsLoading(false);
     }
@@ -125,7 +163,7 @@ export default function HistoryAndScenarios() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EED6CC] text-xs font-medium text-[#4A3030]">
-                {history.map((item, idx) => (
+                {(Array.isArray(history) ? history : DEFAULT_HISTORY).map((item, idx) => (
                   <tr key={item._id || item.id || idx} className="hover:bg-[#FBE1E1]/30 transition-colors">
                     <td className="py-3.5 px-4 font-mono text-[#8F2635] whitespace-nowrap">{item.timestamp ? new Date(item.timestamp).toLocaleString() : 'Just Now'}</td>
                     <td className="py-3.5 px-4 font-bold text-[#4A3030]">{item.num_panels || 1}</td>

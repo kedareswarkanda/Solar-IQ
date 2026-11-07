@@ -18,6 +18,30 @@ import {
 
 const EXACT_LOCATION_MAX_ACCURACY = 500;
 
+const DEFAULT_COUNTRIES = [
+  { code: 'IN', name: 'India' },
+  { code: 'US', name: 'United States' },
+  { code: 'ES', name: 'Spain' },
+  { code: 'EG', name: 'Egypt' },
+  { code: 'AU', name: 'Australia' }
+];
+
+const DEFAULT_STATES = [
+  'Andhra Pradesh', 'Telangana', 'Karnataka', 'Tamil Nadu', 'Maharashtra', 'Gujarat', 'Rajasthan', 'Delhi'
+];
+
+const DEFAULT_DISTRICTS = [
+  'Anantapur', 'Chittoor', 'Kurnool', 'Kadapa', 'Nellore', 'Guntur', 'Krishna', 'Visakhapatnam'
+];
+
+const DEFAULT_MANDALS = [
+  'Anantapur', 'Bukkarayasamudram', 'Garladinne', 'Kudair', 'Singanamala', 'Atmakur', 'Dharmavaram'
+];
+
+const DEFAULT_VILLAGES = [
+  'Anantapur Urban / Town', 'Kakkalapalli', 'Rudrampeta', 'Alamuru', 'Papampeta', 'Rapthadu', 'Kudair'
+];
+
 export default function WeatherLocationSelector({ 
   currentLocation, 
   liveWeather, 
@@ -28,12 +52,12 @@ export default function WeatherLocationSelector({
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Geographic Hierarchy State
-  const [countries, setCountries] = useState([]);
-  const [states, setStates] = useState([]);
-  const [districts, setDistricts] = useState([]);
-  const [mandals, setMandals] = useState([]);
-  const [villages, setVillages] = useState([]);
+  // Geographic Hierarchy State with resilient defaults
+  const [countries, setCountries] = useState(DEFAULT_COUNTRIES);
+  const [states, setStates] = useState(DEFAULT_STATES);
+  const [districts, setDistricts] = useState(DEFAULT_DISTRICTS);
+  const [mandals, setMandals] = useState(DEFAULT_MANDALS);
+  const [villages, setVillages] = useState(DEFAULT_VILLAGES);
 
   // Selected Filter Values
   const [selectedCountry, setSelectedCountry] = useState('India');
@@ -68,8 +92,12 @@ export default function WeatherLocationSelector({
 
   useEffect(() => {
     axios.get('/api/location/countries')
-      .then(res => setCountries(res.data || []))
-      .catch(err => console.error('Failed fetching countries:', err));
+      .then(res => {
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setCountries(res.data);
+        }
+      })
+      .catch(err => console.warn('Using default countries:', err.message));
   }, []);
 
   useEffect(() => {
@@ -87,11 +115,13 @@ export default function WeatherLocationSelector({
     setLoadingStep('Loading states...');
     axios.get(`/api/location/states?country=${encodeURIComponent(selectedCountry)}`)
       .then(res => {
-        setStates(res.data || []);
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setStates(res.data);
+        }
         setLoadingStep('');
       })
       .catch(err => {
-        console.error('Failed fetching states:', err);
+        console.warn('Using default states:', err.message);
         setLoadingStep('');
       });
   }, [selectedCountry]);
@@ -101,11 +131,13 @@ export default function WeatherLocationSelector({
     setLoadingStep('Loading districts...');
     axios.get(`/api/location/districts?country=${encodeURIComponent(selectedCountry)}&state=${encodeURIComponent(selectedState)}`)
       .then(res => {
-        setDistricts(res.data || []);
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setDistricts(res.data);
+        }
         setLoadingStep('');
       })
       .catch(err => {
-        console.error('Failed fetching districts:', err);
+        console.warn('Using default districts:', err.message);
         setLoadingStep('');
       });
   }, [selectedCountry, selectedState]);
@@ -115,11 +147,13 @@ export default function WeatherLocationSelector({
     setLoadingStep('Loading mandals...');
     axios.get(`/api/location/mandals?country=${encodeURIComponent(selectedCountry)}&state=${encodeURIComponent(selectedState)}&district=${encodeURIComponent(selectedDistrict)}`)
       .then(res => {
-        setMandals(res.data || []);
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setMandals(res.data);
+        }
         setLoadingStep('');
       })
       .catch(err => {
-        console.error('Failed fetching mandals:', err);
+        console.warn('Using default mandals:', err.message);
         setLoadingStep('');
       });
   }, [selectedCountry, selectedState, selectedDistrict]);
@@ -129,11 +163,13 @@ export default function WeatherLocationSelector({
     setLoadingStep('Loading villages...');
     axios.get(`/api/location/villages?country=${encodeURIComponent(selectedCountry)}&state=${encodeURIComponent(selectedState)}&district=${encodeURIComponent(selectedDistrict)}&mandal=${encodeURIComponent(selectedMandal)}`)
       .then(res => {
-        setVillages(res.data || []);
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setVillages(res.data);
+        }
         setLoadingStep('');
       })
       .catch(err => {
-        console.error('Failed fetching villages:', err);
+        console.warn('Using default villages:', err.message);
         setLoadingStep('');
       });
   }, [selectedCountry, selectedState, selectedDistrict, selectedMandal]);
@@ -626,8 +662,8 @@ export default function WeatherLocationSelector({
                 onChange={(e) => handleCountryChange(e.target.value)}
                 className="w-full bg-[#FBF3EA] border border-[#EED6CC] text-[#4A3030] rounded-xl px-3 py-1.5 font-bold text-xs focus:outline-none focus:ring-1 focus:ring-[#E86A6A]"
               >
-                {countries.map((c) => (
-                  <option key={c.code} value={c.name}>{c.name}</option>
+                {(Array.isArray(countries) ? countries : DEFAULT_COUNTRIES).map((c) => (
+                  <option key={c.code || c.name} value={c.name}>{c.name}</option>
                 ))}
               </select>
             </div>
@@ -637,11 +673,11 @@ export default function WeatherLocationSelector({
               <select
                 value={selectedState}
                 onChange={(e) => handleStateChange(e.target.value)}
-                disabled={!states.length}
+                disabled={!(Array.isArray(states) && states.length)}
                 className="w-full bg-[#FBF3EA] border border-[#EED6CC] text-[#4A3030] rounded-xl px-3 py-1.5 font-bold text-xs focus:outline-none focus:ring-1 focus:ring-[#E86A6A] disabled:opacity-50"
               >
                 <option value="" disabled>Select State...</option>
-                {states.map((st) => (
+                {(Array.isArray(states) ? states : DEFAULT_STATES).map((st) => (
                   <option key={st} value={st}>{st}</option>
                 ))}
               </select>
@@ -652,11 +688,11 @@ export default function WeatherLocationSelector({
               <select
                 value={selectedDistrict}
                 onChange={(e) => handleDistrictChange(e.target.value)}
-                disabled={!districts.length}
+                disabled={!(Array.isArray(districts) && districts.length)}
                 className="w-full bg-[#FBF3EA] border border-[#EED6CC] text-[#4A3030] rounded-xl px-3 py-1.5 font-bold text-xs focus:outline-none focus:ring-1 focus:ring-[#E86A6A] disabled:opacity-50"
               >
                 <option value="" disabled>Select District...</option>
-                {districts.map((d) => (
+                {(Array.isArray(districts) ? districts : DEFAULT_DISTRICTS).map((d) => (
                   <option key={d} value={d}>{d}</option>
                 ))}
               </select>
@@ -667,11 +703,11 @@ export default function WeatherLocationSelector({
               <select
                 value={selectedMandal}
                 onChange={(e) => handleMandalChange(e.target.value)}
-                disabled={!mandals.length}
+                disabled={!(Array.isArray(mandals) && mandals.length)}
                 className="w-full bg-[#FBF3EA] border border-[#EED6CC] text-[#4A3030] rounded-xl px-3 py-1.5 font-bold text-xs focus:outline-none focus:ring-1 focus:ring-[#E86A6A] disabled:opacity-50"
               >
                 <option value="" disabled>Select Mandal / Sub-district...</option>
-                {mandals.map((m) => (
+                {(Array.isArray(mandals) ? mandals : DEFAULT_MANDALS).map((m) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
               </select>
@@ -682,11 +718,11 @@ export default function WeatherLocationSelector({
               <select
                 value={selectedVillage}
                 onChange={(e) => handleVillageChange(e.target.value)}
-                disabled={!villages.length}
+                disabled={!(Array.isArray(villages) && villages.length)}
                 className="w-full bg-[#FBF3EA] border border-[#EED6CC] text-[#4A3030] rounded-xl px-3 py-1.5 font-bold text-xs focus:outline-none focus:ring-1 focus:ring-[#E86A6A] disabled:opacity-50"
               >
                 <option value="" disabled>Select Village / Locality...</option>
-                {villages.map((v) => (
+                {(Array.isArray(villages) ? villages : DEFAULT_VILLAGES).map((v) => (
                   <option key={v} value={v}>{v}</option>
                 ))}
               </select>

@@ -170,7 +170,7 @@ export default function Analyzer({
         <div className="space-y-6 lg:col-span-2">
           
           {/* Quick Weather Presets Bar */}
-          {cityPresets && (
+          {cityPresets && typeof cityPresets === 'object' && !Array.isArray(cityPresets) && (
             <div className="bg-[#FFFDFC] border border-[#EED6CC] rounded-2xl p-5 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-extrabold text-[#8F2635] uppercase tracking-wider flex items-center space-x-2">
