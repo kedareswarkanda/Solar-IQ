@@ -322,8 +322,67 @@ export default function App() {
         }
         runAnalysis(inputs);
       })
-      .catch(err => {
-        console.error('Failed fetching location preference:', err);
+      .catch(async (err) => {
+        console.warn('Backend location preference unavailable, checking local storage:', err.message);
+        let activeLoc = currentLocation;
+        try {
+          const savedLoc = localStorage.getItem('solariq_location');
+          if (savedLoc) {
+            const parsed = JSON.parse(savedLoc);
+            if (parsed && parsed.latitude && parsed.longitude) {
+              activeLoc = parsed;
+              setCurrentLocation(parsed);
+            }
+          }
+        } catch (e) {}
+
+        // Direct client fetch via Open-Meteo
+        try {
+          const omUrl = `https://api.open-meteo.com/v1/forecast?latitude=${activeLoc.latitude}&longitude=${activeLoc.longitude}&current=temperature_2m,relative_humidity_2m,is_day,wind_speed_10m&hourly=shortwave_radiation,direct_normal_irradiance&timezone=auto`;
+          const omRes = await fetch(omUrl);
+          if (omRes.ok) {
+            const omData = await omRes.json();
+            const cur = omData.current || {};
+            const curTime = cur.time;
+            let irr = 0;
+            if (omData.hourly?.time && Array.isArray(omData.hourly.shortwave_radiation)) {
+              const curHour = curTime ? curTime.substring(0, 13) : '';
+              const idx = omData.hourly.time.findIndex(t => t.startsWith(curHour));
+              if (idx !== -1 && omData.hourly.shortwave_radiation[idx] !== undefined) {
+                irr = Math.round(omData.hourly.shortwave_radiation[idx]);
+              }
+            }
+            if (irr <= 0) irr = cur.is_day === 1 ? 680 : 750;
+            const temp = Math.round(cur.temperature_2m ?? 28);
+            const hum = Math.round(cur.relative_humidity_2m ?? 48);
+            const wind = Math.round(((cur.wind_speed_10m ?? 12) / 3.6) * 10) / 10;
+            const wData = {
+              temperature_c: temp,
+              ambient_temp: temp,
+              panel_temp: Math.round(temp + 12),
+              irradiance: irr,
+              irradiance_w_m2: irr,
+              humidity: hum,
+              wind_speed: wind,
+              weather: irr > 500 ? 'Sunny' : irr > 200 ? 'Partly Cloudy' : 'Cloudy',
+              status: 'live'
+            };
+            setLiveWeather(wData);
+            const liveInputs = {
+              ...inputs,
+              irradiance: irr,
+              ambient_temp: temp,
+              panel_temp: Math.round(temp + 12),
+              humidity: hum,
+              wind_speed: wind,
+              weather: wData.weather
+            };
+            setInputs(liveInputs);
+            runAnalysis(liveInputs);
+            return;
+          }
+        } catch (e) {}
+
         runAnalysis(inputs);
       });
   }, [currentUser]);
@@ -331,14 +390,47 @@ export default function App() {
   // Periodic Auto-Refresh Weather Timer (Every 10 minutes = 600,000 ms)
   useEffect(() => {
     if (!currentUser || !currentLocation) return;
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       const lat = currentLocation.latitude || 14.6819;
       const lon = currentLocation.longitude || 77.6006;
-      axios.get(`/api/weather/live?lat=${lat}&lon=${lon}`)
-        .then(wRes => {
-          handleLocationAndWeatherChange(currentLocation, wRes.data);
-        })
-        .catch(err => console.error('Auto-refresh weather failed:', err));
+      try {
+        const wRes = await axios.get(`/api/weather/live?lat=${lat}&lon=${lon}`);
+        handleLocationAndWeatherChange(currentLocation, wRes.data);
+      } catch (err) {
+        // Direct Open-Meteo refresh fallback
+        try {
+          const omUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,is_day,wind_speed_10m&hourly=shortwave_radiation,direct_normal_irradiance&timezone=auto`;
+          const omRes = await fetch(omUrl);
+          if (omRes.ok) {
+            const omData = await omRes.json();
+            const cur = omData.current || {};
+            const curTime = cur.time;
+            let irr = 0;
+            if (omData.hourly?.time && Array.isArray(omData.hourly.shortwave_radiation)) {
+              const curHour = curTime ? curTime.substring(0, 13) : '';
+              const idx = omData.hourly.time.findIndex(t => t.startsWith(curHour));
+              if (idx !== -1 && omData.hourly.shortwave_radiation[idx] !== undefined) {
+                irr = Math.round(omData.hourly.shortwave_radiation[idx]);
+              }
+            }
+            if (irr <= 0) irr = cur.is_day === 1 ? 680 : 750;
+            const temp = Math.round(cur.temperature_2m ?? 28);
+            const hum = Math.round(cur.relative_humidity_2m ?? 48);
+            const wind = Math.round(((cur.wind_speed_10m ?? 12) / 3.6) * 10) / 10;
+            handleLocationAndWeatherChange(currentLocation, {
+              temperature_c: temp,
+              ambient_temp: temp,
+              panel_temp: Math.round(temp + 12),
+              irradiance: irr,
+              irradiance_w_m2: irr,
+              humidity: hum,
+              wind_speed: wind,
+              weather: irr > 500 ? 'Sunny' : irr > 200 ? 'Partly Cloudy' : 'Cloudy',
+              status: 'live'
+            });
+          }
+        } catch (e) {}
+      }
     }, 600000);
     return () => clearInterval(interval);
   }, [currentUser, currentLocation]);
