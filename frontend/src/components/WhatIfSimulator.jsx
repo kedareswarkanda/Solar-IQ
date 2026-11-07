@@ -42,21 +42,45 @@ export default function WhatIfSimulator({
   const handleRunSimulation = async () => {
     setIsLoading(true);
     try {
+      let res = null;
       if (onSimulateWhatIf) {
-        const res = await onSimulateWhatIf(baseline, modified);
-        setSimulationResult(res);
-      } else {
-        const bPower = baseline.irradiance * baseline.num_panels * (baseline.area || 2.0) * (baseline.efficiency / 100) * (1 - baseline.soiling / 100) * (1 - baseline.shading / 100);
-        const mPower = modified.irradiance * modified.num_panels * (modified.area || 2.0) * (modified.efficiency / 100) * (1 - modified.soiling / 100) * (1 - modified.shading / 100);
-        const deltaP = mPower - bPower;
-        setSimulationResult({
-          baseline: { power_w: Math.round(bPower), daily_energy_kwh: (bPower * 5.2 / 1000).toFixed(2), co2_avoided_kg: (bPower * 5.2 * 0.707 / 1000).toFixed(2) },
-          modified: { power_w: Math.round(mPower), daily_energy_kwh: (mPower * 5.2 / 1000).toFixed(2), co2_avoided_kg: (mPower * 5.2 * 0.707 / 1000).toFixed(2) },
-          delta: { power_w: Math.round(deltaP), percentage: ((deltaP / bPower) * 100).toFixed(1), co2_delta_kg: ((deltaP * 5.2 * 0.707) / 1000).toFixed(2) }
-        });
+        res = await onSimulateWhatIf(baseline, modified);
       }
+      
+      const bP = res?.baseline?.power_w ?? Math.round((baseline.irradiance || 850) * (baseline.num_panels || 1) * (baseline.area || 2.0) * ((baseline.efficiency || 20) / 100) * (1 - (baseline.soiling || 3) / 100) * (1 - (baseline.shading || 5) / 100));
+      const mP = res?.modified?.power_w ?? Math.round((modified.irradiance || 850) * (modified.num_panels || 1) * (modified.area || 2.0) * ((modified.efficiency || 20) / 100) * (1 - (modified.soiling || 1) / 100) * (1 - (modified.shading || 2) / 100));
+      const deltaP = res?.delta?.power_w ?? (mP - bP);
+      const bD = res?.baseline?.daily_energy_kwh ?? (bP * 5.2 / 1000).toFixed(2);
+      const mD = res?.modified?.daily_energy_kwh ?? (mP * 5.2 / 1000).toFixed(2);
+      const deltaD = res?.delta?.daily_energy_kwh ?? (mD - bD).toFixed(2);
+      const bC = res?.baseline?.co2_avoided_kg ?? (bP * 5.2 * 0.707 / 1000).toFixed(2);
+      const mC = res?.modified?.co2_avoided_kg ?? (mP * 5.2 * 0.707 / 1000).toFixed(2);
+      const deltaC = res?.delta?.co2_delta_kg ?? ((deltaP * 5.2 * 0.707) / 1000).toFixed(2);
+      const deltaPct = res?.delta?.percentage ?? (bP > 0 ? ((deltaP / bP) * 100).toFixed(1) : '0.0');
+
+      setSimulationResult({
+        baseline: {
+          power_w: bP,
+          daily_energy_kwh: bD,
+          co2_avoided_kg: bC,
+          ...(res?.baseline || {})
+        },
+        modified: {
+          power_w: mP,
+          daily_energy_kwh: mD,
+          co2_avoided_kg: mC,
+          ...(res?.modified || {})
+        },
+        delta: {
+          power_w: deltaP,
+          percentage: deltaPct,
+          daily_energy_kwh: deltaD,
+          co2_delta_kg: deltaC,
+          ...(res?.delta || {})
+        }
+      });
     } catch (e) {
-      console.error(e);
+      console.error('What-if computation error:', e);
     } finally {
       setIsLoading(false);
     }
@@ -271,7 +295,7 @@ export default function WhatIfSimulator({
             </div>
             <div className="flex items-center space-x-2">
               <span className="px-3.5 py-1.5 rounded-full text-xs font-black bg-[#FBE1E1] text-[#8F2635] border border-[#E86A6A]/30">
-                {simulationResult.delta.power_w >= 0 ? '+' : ''}{simulationResult.delta.power_w} W ({simulationResult.delta.percentage}%)
+                {(simulationResult?.delta?.power_w ?? 0) >= 0 ? '+' : ''}{simulationResult?.delta?.power_w ?? 0} W ({simulationResult?.delta?.percentage ?? 0}%)
               </span>
             </div>
           </div>
@@ -281,33 +305,33 @@ export default function WhatIfSimulator({
             <div className="bg-[#FBF3EA] border border-[#EED6CC] rounded-2xl p-5 space-y-3">
               <span className="text-[10px] font-extrabold text-[#8F2635] uppercase tracking-wider block">Baseline Output</span>
               <div className="text-2xl font-black text-[#4A3030]">
-                {simulationResult.baseline.power_w} W
+                {simulationResult?.baseline?.power_w ?? 0} W
               </div>
               <div className="text-xs text-[#4A3030] space-y-1 font-medium">
-                <div>Daily Yield: <span className="font-bold text-[#8F2635]">{simulationResult.baseline.daily_energy_kwh} kWh</span></div>
-                <div>CO₂ Offset: <span className="font-bold text-[#8F2635]">{simulationResult.baseline.co2_avoided_kg} kg</span></div>
+                <div>Daily Yield: <span className="font-bold text-[#8F2635]">{simulationResult?.baseline?.daily_energy_kwh ?? '0.00'} kWh</span></div>
+                <div>CO₂ Offset: <span className="font-bold text-[#8F2635]">{simulationResult?.baseline?.co2_avoided_kg ?? '0.00'} kg</span></div>
               </div>
             </div>
 
             <div className="bg-[#FBF3EA] border border-[#EED6CC] rounded-2xl p-5 space-y-3">
               <span className="text-[10px] font-extrabold text-[#8F2635] uppercase tracking-wider block">Modified Target</span>
               <div className="text-2xl font-black text-[#8F2635]">
-                {simulationResult.modified.power_w} W
+                {simulationResult?.modified?.power_w ?? 0} W
               </div>
               <div className="text-xs text-[#4A3030] space-y-1 font-medium">
-                <div>Daily Yield: <span className="font-bold text-[#8F2635]">{simulationResult.modified.daily_energy_kwh} kWh</span></div>
-                <div>CO₂ Offset: <span className="font-bold text-[#8F2635]">{simulationResult.modified.co2_avoided_kg} kg</span></div>
+                <div>Daily Yield: <span className="font-bold text-[#8F2635]">{simulationResult?.modified?.daily_energy_kwh ?? '0.00'} kWh</span></div>
+                <div>CO₂ Offset: <span className="font-bold text-[#8F2635]">{simulationResult?.modified?.co2_avoided_kg ?? '0.00'} kg</span></div>
               </div>
             </div>
 
             <div className="bg-[#FBE1E1] border border-[#E86A6A]/30 rounded-2xl p-5 space-y-3">
               <span className="text-[10px] font-extrabold text-[#8F2635] uppercase tracking-wider block">Net Impact Delta</span>
               <div className="text-2xl font-black text-[#8F2635]">
-                +{simulationResult.delta.power_w} W
+                {(simulationResult?.delta?.power_w ?? 0) >= 0 ? '+' : ''}{simulationResult?.delta?.power_w ?? 0} W
               </div>
               <div className="text-xs text-[#8F2635] space-y-1 font-bold">
-                <div>Daily Energy Gain: <span>+{simulationResult.delta.daily_energy_kwh || '0.50'} kWh</span></div>
-                <div>CO₂ Avoided Delta: <span>+{simulationResult.delta.co2_delta_kg || '0.35'} kg</span></div>
+                <div>Daily Energy Gain: <span>+{(simulationResult?.delta?.daily_energy_kwh ?? '0.50')} kWh</span></div>
+                <div>CO₂ Avoided Delta: <span>+{(simulationResult?.delta?.co2_delta_kg ?? '0.35')} kg</span></div>
               </div>
             </div>
 

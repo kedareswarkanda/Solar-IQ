@@ -435,17 +435,45 @@ export default function App() {
     return () => clearInterval(interval);
   }, [currentUser, currentLocation]);
 
-  // WebSocket Telemetry Connection
+  // WebSocket Telemetry Connection with Smooth Simulated Fallback
   useEffect(() => {
     if (!currentUser) return;
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const defaultWsUrl = `${protocol}//${window.location.host}/ws/telemetry`;
-    const wsUrl = import.meta.env.VITE_WS_URL || defaultWsUrl;
     let ws = null;
+    let fallbackInterval = null;
 
+    const startSimulatedTicker = () => {
+      if (fallbackInterval) return;
+      fallbackInterval = setInterval(() => {
+        setTelemetry(() => {
+          const currIrr = inputs?.irradiance || 850;
+          const currTilt = inputs?.tilt || 25;
+          const tiltFactor = Math.max(0.6, Math.cos((Math.abs(currTilt - 30) * Math.PI) / 180));
+          const basePower = Math.round(currIrr * 0.45 * tiltFactor);
+          const noise = (Math.random() - 0.5) * 8;
+          const p = Math.max(10, Math.round(basePower + noise));
+          const v = Math.round((230 + (Math.random() - 0.5) * 3) * 10) / 10;
+          const i = Math.round((p / v) * 100) / 100;
+          return {
+            timestamp: new Date().toLocaleTimeString(),
+            voltage: v,
+            current: i,
+            power: p,
+            panel_temp: Math.round(((inputs?.panel_temp || 35) + (Math.random() - 0.5) * 1.5) * 10) / 10,
+            ambient_temp: inputs?.ambient_temp || 28,
+            irradiance: Math.round(currIrr + (Math.random() - 0.5) * 15),
+            status: "NORMAL",
+            efficiency: 19.8
+          };
+        });
+      }, 2500);
+    };
 
     try {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const defaultWsUrl = `${protocol}//${window.location.host}/ws/telemetry`;
+      const wsUrl = import.meta.env.VITE_WS_URL || defaultWsUrl;
+      
       ws = new WebSocket(wsUrl);
       ws.onmessage = (event) => {
         try {
@@ -455,15 +483,28 @@ export default function App() {
           console.error('Failed parsing WS telemetry message:', e);
         }
       };
-      ws.onerror = (err) => console.log('WS Connection Error (Using simulated fallback):', err);
+      ws.onerror = () => {
+        startSimulatedTicker();
+      };
+      ws.onclose = () => {
+        startSimulatedTicker();
+      };
     } catch (e) {
-      console.log('WS Not Available');
+      startSimulatedTicker();
     }
 
+    const timeoutCheck = setTimeout(() => {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        startSimulatedTicker();
+      }
+    }, 1500);
+
     return () => {
+      clearTimeout(timeoutCheck);
+      if (fallbackInterval) clearInterval(fallbackInterval);
       if (ws) ws.close();
     };
-  }, [currentUser]);
+  }, [currentUser, inputs]);
 
   // Run Main Analysis Call
   const runAnalysis = async (currentInputs = inputs) => {
@@ -500,8 +541,12 @@ export default function App() {
         const factor = h >= 6 && h <= 18 ? Math.sin(((h - 6) / 12) * Math.PI) : 0;
         return {
           hour: `${h}:00`,
+          time: `${h < 10 ? '0' + h : h}:00`,
+          power_w: Math.round(pPhysics * factor),
           physics_w: Math.round(pPhysics * factor),
-          ai_predicted_w: Math.round(pAi * factor)
+          ai_predicted_w: Math.round(pAi * factor),
+          irradiance: Math.round(irr * factor),
+          temp: Math.round(pTemp + factor * 8)
         };
       });
 
@@ -609,29 +654,62 @@ export default function App() {
   const handleSimulateWhatIf = async (baseline, modified) => {
     try {
       const res = await axios.post('/api/simulate-what-if', { baseline, modified });
-      return res.data;
+      if (res.data && res.data.baseline && res.data.modified && res.data.delta) {
+        return res.data;
+      }
     } catch (err) {
       console.warn('What-if API call failed, using client-side calculation:', err);
-      const calcP = (p) => {
-        const n = p.num_panels || 1;
-        const a = p.area || 2.0;
-        const irr = p.irradiance || 850.0;
-        const eff = (p.efficiency || 20.0) / 100.0;
-        const fT = Math.max(0.5, 1.0 - 0.004 * ((p.panel_temp || 35.0) - 25.0));
-        const fTilt = Math.max(0.3, Math.cos((Math.abs((p.tilt || 25.0) - 30.0) * Math.PI) / 180.0));
-        const fS = 1.0 - (p.soiling || 3.0) / 100.0;
-        const fSh = 1.0 - (p.shading || 5.0) / 100.0;
-        return Math.round(irr * n * a * eff * fT * fTilt * fS * fSh);
-      };
-      const bPower = calcP(baseline);
-      const mPower = calcP(modified);
-      return {
-        baseline: { power_w: bPower, energy_kwh: Math.round((bPower * 5.4 / 1000) * 100) / 100 },
-        modified: { power_w: mPower, energy_kwh: Math.round((mPower * 5.4 / 1000) * 100) / 100 },
-        diff_power_w: mPower - bPower,
-        diff_percentage: bPower > 0 ? Math.round(((mPower - bPower) / bPower) * 1000) / 10 : 0
-      };
     }
+
+    const calcP = (p) => {
+      const n = p.num_panels || 1;
+      const a = p.area || 2.0;
+      const irr = p.irradiance || 850.0;
+      const eff = (p.efficiency || 20.0) / 100.0;
+      const fT = Math.max(0.5, 1.0 - 0.004 * ((p.panel_temp || 35.0) - 25.0));
+      const fTilt = Math.max(0.3, Math.cos((Math.abs((p.tilt || 25.0) - 30.0) * Math.PI) / 180.0));
+      const fS = 1.0 - (p.soiling || 3.0) / 100.0;
+      const fSh = 1.0 - (p.shading || 5.0) / 100.0;
+      return Math.round(irr * n * a * eff * fT * fTilt * fS * fSh);
+    };
+
+    const bPower = calcP(baseline);
+    const mPower = calcP(modified);
+    const bDaily = Math.round((bPower * 5.4 / 1000) * 100) / 100;
+    const mDaily = Math.round((mPower * 5.4 / 1000) * 100) / 100;
+    const bCarbon = Math.round((bDaily * 0.707) * 100) / 100;
+    const mCarbon = Math.round((mDaily * 0.707) * 100) / 100;
+    const deltaPower = mPower - bPower;
+    const deltaPct = bPower > 0 ? Math.round(((mPower - bPower) / bPower) * 1000) / 10 : 0;
+    const deltaDaily = Math.round((mDaily - bDaily) * 100) / 100;
+    const deltaCarbon = Math.round((mCarbon - bCarbon) * 100) / 100;
+
+    return {
+      baseline: {
+        power_w: bPower,
+        daily_energy_kwh: bDaily,
+        co2_avoided_kg: bCarbon,
+        efficiency_percent: baseline.efficiency || 20.0,
+        tilt: baseline.tilt || 25,
+        shading: baseline.shading || 0,
+        soiling: baseline.soiling || 0
+      },
+      modified: {
+        power_w: mPower,
+        daily_energy_kwh: mDaily,
+        co2_avoided_kg: mCarbon,
+        efficiency_percent: modified.efficiency || 20.0,
+        tilt: modified.tilt || 30,
+        shading: modified.shading || 0,
+        soiling: modified.soiling || 0
+      },
+      delta: {
+        power_w: deltaPower,
+        percentage: deltaPct,
+        daily_energy_kwh: deltaDaily,
+        co2_delta_kg: deltaCarbon
+      }
+    };
   };
 
   // Weather City Preset Selection
