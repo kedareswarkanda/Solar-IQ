@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-base: #FBF3EA;
+    --bg-surface: #F5E6D3;
+    --text-primary: #4A3030;
+    --text-muted: #8F2635;
+    --border-color: #EED6CC;
+    --accent-coral: #E86A6A;
+    --accent-burgundy: #8F2635;
+  }
+
+  body {
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Custom Scrollbars in Biscuit + Coral */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #FBF3EA;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #EED6CC;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #E86A6A;
+}
+
+/* Squircle Card Hover & Interaction Animation */
+.squircle-card {
+  border-radius: 1.25rem;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
+}
+
+.squircle-card:hover {
+  transform: translateY(-3px) scale(1.005);
+  box-shadow: 0 12px 28px -6px rgba(143, 38, 53, 0.12);
+}
+
+/* Radar Pulse Wave Rings (Coral Red) */
+.radar-pulse-node {
+  position: relative;
+}
+
+.radar-pulse-node::before,
+.radar-pulse-node::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid #E86A6A;
+  transform: translate(-50%, -50%) scale(0.8);
+  animation: radarPulse 2.5s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+
+.radar-pulse-node::after {
+  animation-delay: 1.25s;
+}
+
+@keyframes radarPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.2);
+    opacity: 0;
+  }
+}
+
+/* Interactive View Animations */
+@keyframes fadeInUp {
+  0% { 
+    opacity: 0; 
+    transform: translateY(12px) scale(0.99); 
+  }
+  100% { 
+    opacity: 1; 
+    transform: translateY(0) scale(1); 
+  }
+}
+
+@keyframes slideInLeft {
+  0% { 
+    opacity: 0; 
+    transform: translateX(-16px); 
+  }
+  100% { 
+    opacity: 1; 
+    transform: translateX(0); 
+  }
+}
+
+.animate-fade-in {
+  animation: fadeInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-left {
+  animation: slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

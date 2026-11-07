@@ -1,0 +1,33 @@
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+dist/
+.env
+.env.local
+.env.*.local
+.vercel
+
+# Python / Backend
+__pycache__/
+backend/**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# User uploads & data cache (preserve directory structure)
+backend/uploads/profile_photos/*
+!backend/uploads/profile_photos/.gitkeep
+
+# Operating System files
+.DS_Store
+Thumbs.db
+desktop.ini
