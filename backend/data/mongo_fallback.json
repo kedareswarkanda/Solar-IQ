@@ -11,27 +11,120 @@
       "location": "Standard Installation Site"
     },
     {
-      "name": "SolarIQ Operator",
+      "name": "Updated Operator Name",
       "email": "user@solariq.io",
       "password_hash": "7524cd778de864170993a25cd290bcd4b16f978c940ab183ab104ae462d2697c",
       "role": "user",
       "status": "active",
       "created_at": "2026-11-05 12:23:13",
       "last_login": "2026-11-05 12:23:13",
-      "location": "Standard Installation Site",
+      "location": "Solar Site Alpha",
       "weather_location_pref": {
         "country": "India",
-        "state": "Tamil Nadu",
-        "district": "Virudhunagar",
-        "mandal": "Srivilliputhur",
-        "village": "Krishnankoil",
-        "latitude": 9.5729627,
-        "longitude": 77.6783759,
-        "display_name": "Krishnankoil, Srivilliputhur Taluk, Virudhunagar Dist, Tamil Nadu, India"
-      }
+        "state": "Andhra Pradesh",
+        "district": "Anantapur",
+        "mandal": "Anantapur",
+        "village": "Kakkalapalli",
+        "latitude": 14.6542,
+        "longitude": 77.5891,
+        "display_name": "Kakkalapalli, Anantapur Mandal, Anantapur, Andhra Pradesh, India"
+      },
+      "photo": "/uploads/profile_photos/profile_647510cec2a6_1794025106.jpg",
+      "profile_photo_url": "/uploads/profile_photos/profile_647510cec2a6_1794025106.jpg",
+      "profile_photo_filename": "profile_647510cec2a6_1794025106.jpg",
+      "profile_photo_mime_type": "image/jpeg",
+      "profile_photo_updated_at": "2026-11-07 09:48:26"
+    },
+    {
+      "name": "OTP Test User",
+      "email": "otp_test_user@solariq.io",
+      "password_hash": "206cf99e1ce29575a10c9a00314441d7cd0a8229ac52446e1510733087b8b356",
+      "role": "user",
+      "location": "Standard Installation Site",
+      "status": "active",
+      "created_at": "2026-11-07 09:48:24",
+      "last_login": "2026-11-07 09:48:24"
+    },
+    {
+      "name": "Test Engineer",
+      "email": "test_engineer@solariq.io",
+      "password_hash": "70bf5f29a4a5ff3cb756e9fd3b6809b3135ab5c4353017643ae608c6723bb457",
+      "role": "user",
+      "location": "Standard Installation Site",
+      "status": "active",
+      "created_at": "2026-11-07 09:48:24",
+      "last_login": "2026-11-07 09:48:24"
+    },
+    {
+      "name": "User A",
+      "email": "usera@solariq.io",
+      "password_hash": "2556bed2f80bc48519e26cb41d7b3c68b8dd42339a237342b30ca38238549918",
+      "role": "user",
+      "location": "Standard Installation Site",
+      "status": "active",
+      "created_at": "2026-11-07 09:48:25",
+      "last_login": "2026-11-07 09:48:25"
+    },
+    {
+      "name": "User B",
+      "email": "userb@solariq.io",
+      "password_hash": "746d25a688e53208c88e059708cc1f9364f0198694e16c72ac287be9398c7739",
+      "role": "user",
+      "location": "Standard Installation Site",
+      "status": "active",
+      "created_at": "2026-11-07 09:48:25",
+      "last_login": "2026-11-07 09:48:25"
+    },
+    {
+      "name": "Hacker User",
+      "email": "hacker@solariq.io",
+      "password_hash": "206cf99e1ce29575a10c9a00314441d7cd0a8229ac52446e1510733087b8b356",
+      "role": "user",
+      "location": "Standard Installation Site",
+      "status": "active",
+      "created_at": "2026-11-07 09:48:30",
+      "last_login": "2026-11-07 09:48:30"
     }
   ],
   "history": [
+    {
+      "irradiance": 850.0,
+      "panel_temp": 35.0,
+      "num_panels": 1,
+      "tilt": 25.0,
+      "shading": 5.0,
+      "soiling": 3.0,
+      "physics_power_w": 296.64,
+      "ai_power_w": 265.35,
+      "efficiency_percent": 15.61,
+      "daily_energy_kwh": 1.56,
+      "co2_avoided_kg": 1.1,
+      "health_score": 86.3,
+      "optimal_tilt": 30.0,
+      "percentage_gain": 0.02,
+      "timestamp": "2026-11-07 09:48:25",
+      "user_email": "usera@solariq.io",
+      "id": 11
+    },
+    {
+      "irradiance": 850.0,
+      "panel_temp": 40.0,
+      "num_panels": 4,
+      "tilt": 25.0,
+      "shading": 5.0,
+      "soiling": 3.0,
+      "physics_power_w": 1161.83,
+      "ai_power_w": 1020.07,
+      "efficiency_percent": 15.0,
+      "daily_energy_kwh": 6.11,
+      "co2_avoided_kg": 4.32,
+      "health_score": 82.9,
+      "optimal_tilt": 30.0,
+      "percentage_gain": 0.02,
+      "timestamp": "2026-11-07 09:48:23",
+      "user_email": "user@solariq.io",
+      "id": 10
+    },
     {
       "irradiance": 780.0,
       "panel_temp": 54.8,
@@ -208,18 +301,147 @@
   "location_preferences": [
     {
       "country": "India",
-      "state": "Tamil Nadu",
-      "district": "Virudhunagar",
-      "mandal": "Srivilliputhur",
-      "village": "Krishnankoil",
-      "latitude": 9.5729627,
-      "longitude": 77.6783759,
-      "display_name": "Krishnankoil, Srivilliputhur Taluk, Virudhunagar Dist, Tamil Nadu, India",
+      "state": "Andhra Pradesh",
+      "district": "Anantapur",
+      "mandal": "Anantapur",
+      "village": "Kakkalapalli",
+      "latitude": 14.6542,
+      "longitude": 77.5891,
+      "display_name": "Kakkalapalli, Anantapur Mandal, Anantapur, Andhra Pradesh, India",
       "user_email": "user@solariq.io",
-      "updated_at": "2026-11-05 12:29:03"
+      "updated_at": "2026-11-07 09:48:30"
     }
   ],
   "activity_logs": [
+    {
+      "timestamp": "2026-11-07 09:48:30",
+      "event_type": "Report Created",
+      "user_email": "usera@solariq.io",
+      "metadata": {
+        "title": "User A Solar Audit Report"
+      },
+      "id": 35
+    },
+    {
+      "timestamp": "2026-11-07 09:48:30",
+      "event_type": "User Registration",
+      "user_email": "hacker@solariq.io",
+      "metadata": {
+        "role": "user"
+      },
+      "id": 34
+    },
+    {
+      "timestamp": "2026-11-07 09:48:30",
+      "event_type": "Location Preference Updated",
+      "user_email": "user@solariq.io",
+      "metadata": {
+        "location": "Kakkalapalli, Anantapur Mandal, Anantapur, Andhra Pradesh, India"
+      },
+      "id": 33
+    },
+    {
+      "timestamp": "2026-11-07 09:48:26",
+      "event_type": "Profile Photo Upload",
+      "user_email": "user@solariq.io",
+      "metadata": {},
+      "id": 32
+    },
+    {
+      "timestamp": "2026-11-07 09:48:26",
+      "event_type": "Account Status Toggle",
+      "user_email": "admin@solariq.io",
+      "metadata": {
+        "target_user": "user@solariq.io",
+        "new_status": "active"
+      },
+      "id": 31
+    },
+    {
+      "timestamp": "2026-11-07 09:48:26",
+      "event_type": "Account Status Toggle",
+      "user_email": "admin@solariq.io",
+      "metadata": {
+        "target_user": "user@solariq.io",
+        "new_status": "disabled"
+      },
+      "id": 30
+    },
+    {
+      "timestamp": "2026-11-07 09:48:26",
+      "event_type": "Profile Update",
+      "user_email": "user@solariq.io",
+      "metadata": {},
+      "id": 29
+    },
+    {
+      "timestamp": "2026-11-07 09:48:25",
+      "event_type": "Analysis Run",
+      "user_email": "usera@solariq.io",
+      "metadata": {},
+      "id": 28
+    },
+    {
+      "timestamp": "2026-11-07 09:48:25",
+      "event_type": "User Registration",
+      "user_email": "userb@solariq.io",
+      "metadata": {
+        "role": "user"
+      },
+      "id": 27
+    },
+    {
+      "timestamp": "2026-11-07 09:48:25",
+      "event_type": "User Registration",
+      "user_email": "usera@solariq.io",
+      "metadata": {
+        "role": "user"
+      },
+      "id": 26
+    },
+    {
+      "timestamp": "2026-11-07 09:48:25",
+      "event_type": "User Login",
+      "user_email": "admin@solariq.io",
+      "metadata": {
+        "role": "admin"
+      },
+      "id": 25
+    },
+    {
+      "timestamp": "2026-11-07 09:48:24",
+      "event_type": "User Login",
+      "user_email": "test_engineer@solariq.io",
+      "metadata": {
+        "role": "user"
+      },
+      "id": 24
+    },
+    {
+      "timestamp": "2026-11-07 09:48:24",
+      "event_type": "User Registration",
+      "user_email": "test_engineer@solariq.io",
+      "metadata": {
+        "role": "user"
+      },
+      "id": 23
+    },
+    {
+      "timestamp": "2026-11-07 09:48:24",
+      "event_type": "User Registration",
+      "user_email": "otp_test_user@solariq.io",
+      "metadata": {
+        "role": "user"
+      },
+      "id": 22
+    },
+    {
+      "timestamp": "2026-11-07 09:48:23",
+      "event_type": "Analysis Run",
+      "user_email": "user@solariq.io",
+      "metadata": {},
+      "id": 21
+    },
     {
       "timestamp": "2026-11-05 12:35:39",
       "event_type": "Analysis Run",
@@ -382,5 +604,51 @@
     }
   ],
   "reports": [],
-  "email_otps": []
+  "email_otps": [
+    {
+      "email": "otp_test_user@solariq.io",
+      "otp_hash": "dummy_hash",
+      "expires_at": "2099-01-01 00:00:00",
+      "attempts": 0,
+      "verified": true,
+      "created_at": "2026-11-07 09:48:23",
+      "verified_at": "2026-11-07 09:48:23"
+    },
+    {
+      "email": "test_engineer@solariq.io",
+      "otp_hash": "dummy_hash",
+      "expires_at": "2099-01-01 00:00:00",
+      "attempts": 0,
+      "verified": true,
+      "created_at": "2026-11-07 09:48:24",
+      "verified_at": "2026-11-07 09:48:24"
+    },
+    {
+      "email": "usera@solariq.io",
+      "otp_hash": "dummy",
+      "expires_at": "2099-01-01 00:00:00",
+      "attempts": 0,
+      "verified": true,
+      "created_at": "2026-11-07 09:48:25",
+      "verified_at": "2026-11-07 09:48:25"
+    },
+    {
+      "email": "userb@solariq.io",
+      "otp_hash": "dummy",
+      "expires_at": "2099-01-01 00:00:00",
+      "attempts": 0,
+      "verified": true,
+      "created_at": "2026-11-07 09:48:25",
+      "verified_at": "2026-11-07 09:48:25"
+    },
+    {
+      "email": "hacker@solariq.io",
+      "otp_hash": "dummy_hash",
+      "expires_at": "2099-01-01 00:00:00",
+      "attempts": 0,
+      "verified": true,
+      "created_at": "2026-11-07 09:48:30",
+      "verified_at": "2026-11-07 09:48:30"
+    }
+  ]
 }
