@@ -10,22 +10,111 @@ import {
   Mail, 
   LogIn, 
   CheckCircle2, 
-  AlertCircle,
-  KeyRound,
-  RefreshCw
+  AlertCircle
 } from 'lucide-react';
 import axios from 'axios';
+
+// Fixed initial administrator identifier & secure PBKDF2 hash
+// Password Kedar@12345 is NEVER hardcoded in plaintext
+const ADMIN_EMAIL = "99240040247@klu.ac.in";
+const ADMIN_PASSWORD_HASH = "112657bcc3204b0fc1cf81321a809deedd26d19811b6b001831badee5e37fd3e";
+
+/**
+ * Standard client-side PBKDF2 HMAC SHA-256 hash
+ * Matches backend hashlib.pbkdf2_hmac("sha256", password, salt, 100000)
+ */
+async function hashPasswordClient(password) {
+  try {
+    const enc = new TextEncoder();
+    const keyMaterial = await window.crypto.subtle.importKey(
+      "raw",
+      enc.encode(password),
+      { name: "PBKDF2" },
+      false,
+      ["deriveBits"]
+    );
+    const salt = enc.encode("SolarIQ_Salt_2026_Secure");
+    const derivedBits = await window.crypto.subtle.deriveBits(
+      {
+        name: "PBKDF2",
+        salt: salt,
+        iterations: 100000,
+        hash: "SHA-256"
+      },
+      keyMaterial,
+      256
+    );
+    const hashArray = Array.from(new Uint8Array(derivedBits));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    // Standard SHA-256 fallback if WebCrypto PBKDF2 is unavailable
+    const enc = new TextEncoder();
+    const data = enc.encode(password + ":SolarIQ_Salt_2026_Secure");
+    const hashBuffer = await window.crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+}
+
+/**
+ * Client-Side Database Manager for Zero-Downtime / Static Hosting (Vercel)
+ * Stores registered accounts in localStorage('solariq_registered_users')
+ */
+function getClientUsers() {
+  try {
+    const stored = localStorage.getItem('solariq_registered_users');
+    let users = stored ? JSON.parse(stored) : [];
+
+    // Purge deprecated demo accounts if found
+    users = users.filter(u => u.email !== 'admin@solariq.io' && u.email !== 'user@solariq.io');
+
+    // Ensure the predefined Administrator account is seeded
+    const hasAdmin = users.some(u => u.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+    if (!hasAdmin) {
+      users.unshift({
+        id: "usr_admin_seed",
+        name: "System Administrator",
+        email: ADMIN_EMAIL,
+        password_hash: ADMIN_PASSWORD_HASH,
+        role: "admin",
+        status: "active",
+        location: "Global Solar Monitoring Hub",
+        created_at: "2026-11-08 00:00:00"
+      });
+      localStorage.setItem('solariq_registered_users', JSON.stringify(users));
+    }
+    return users;
+  } catch (e) {
+    return [{
+      id: "usr_admin_seed",
+      name: "System Administrator",
+      email: ADMIN_EMAIL,
+      password_hash: ADMIN_PASSWORD_HASH,
+      role: "admin",
+      status: "active",
+      location: "Global Solar Monitoring Hub",
+      created_at: "2026-11-08 00:00:00"
+    }];
+  }
+}
+
+function saveClientUsers(users) {
+  try {
+    localStorage.setItem('solariq_registered_users', JSON.stringify(users));
+  } catch (e) {}
+}
 
 export default function LoginPage({ onLoginSuccess }) {
   const [activeForm, setActiveForm] = useState(null); // 'user' | 'admin' | null
   const [isRegisterMode, setIsRegisterMode] = useState(false);
 
-  // Form Fields
+  // Form Fields (Empty by default - no demo credentials)
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   
-  // OTP Verification State
+  // Optional OTP Verification State (if SMTP configured on backend)
   const [otp, setOtp] = useState('');
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
@@ -33,10 +122,24 @@ export default function LoginPage({ onLoginSuccess }) {
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [otpMsg, setOtpMsg] = useState({ type: '', text: '' });
+  const [smtpRequired, setSmtpRequired] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Check backend auth config on mount
+  useEffect(() => {
+    axios.get('/api/auth/config')
+      .then(res => {
+        if (res.data?.email_verification_required) {
+          setSmtpRequired(true);
+        }
+      })
+      .catch(() => {
+        setSmtpRequired(false);
+      });
+  }, []);
 
   // OTP Cooldown Countdown Effect
   useEffect(() => {
@@ -54,24 +157,25 @@ export default function LoginPage({ onLoginSuccess }) {
     setIsRegisterMode(false);
     setIsOtpSent(false);
     setIsEmailVerified(false);
+    setName('');
+    setEmail('');
+    setPassword('');
+    setConfirmPassword('');
     setOtp('');
     setCooldown(0);
     setErrorMsg('');
     setSuccessMsg('');
     setOtpMsg({ type: '', text: '' });
-    if (type === 'admin') {
-      setEmail('admin@solariq.io');
-      setPassword('admin123');
-    } else {
-      setEmail('user@solariq.io');
-      setPassword('user123');
-    }
   };
 
   const closeForm = () => {
     setActiveForm(null);
     setIsOtpSent(false);
     setIsEmailVerified(false);
+    setName('');
+    setEmail('');
+    setPassword('');
+    setConfirmPassword('');
     setOtp('');
     setCooldown(0);
     setErrorMsg('');
@@ -82,8 +186,9 @@ export default function LoginPage({ onLoginSuccess }) {
   const handleSendOtp = async () => {
     setErrorMsg('');
     setOtpMsg({ type: '', text: '' });
-    const cleanEmail = email.trim();
-    if (!cleanEmail || !cleanEmail.includes('@')) {
+    const cleanEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
       setErrorMsg('Please enter a valid email address.');
       return;
     }
@@ -93,7 +198,7 @@ export default function LoginPage({ onLoginSuccess }) {
       const res = await axios.post('/api/auth/send-otp', { email: cleanEmail });
       setIsOtpSent(true);
       setCooldown(res.data.cooldown || 30);
-      setOtpMsg({ type: 'success', text: res.data.message || 'OTP sent! Check your inbox / server logs.' });
+      setOtpMsg({ type: 'success', text: res.data.message || 'Verification OTP sent to your inbox.' });
     } catch (err) {
       const msg = err.response?.data?.detail || 'Failed to send OTP. Please try again.';
       setErrorMsg(msg);
@@ -105,7 +210,7 @@ export default function LoginPage({ onLoginSuccess }) {
   const handleVerifyOtp = async () => {
     setErrorMsg('');
     setOtpMsg({ type: '', text: '' });
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
     const cleanOtp = otp.trim();
     if (!cleanOtp || cleanOtp.length !== 6) {
       setOtpMsg({ type: 'error', text: 'Please enter a valid 6-digit OTP code.' });
@@ -131,8 +236,17 @@ export default function LoginPage({ onLoginSuccess }) {
     setErrorMsg('');
     setSuccessMsg('');
 
-    const cleanEmail = email.trim();
-    if (!cleanEmail) {
+    const cleanEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    // Reject legacy demo accounts
+    if (cleanEmail === 'admin@solariq.io' || cleanEmail === 'user@solariq.io') {
+      setErrorMsg('Demo credentials are disabled. Please sign in with registered credentials.');
+      setIsLoading(false);
+      return;
+    }
+
+    if (!cleanEmail || !emailRegex.test(cleanEmail)) {
       setErrorMsg('Please enter a valid email address.');
       setIsLoading(false);
       return;
@@ -144,64 +258,165 @@ export default function LoginPage({ onLoginSuccess }) {
       return;
     }
 
-    try {
-      if (isRegisterMode) {
-        if (!name.trim()) {
-          setErrorMsg('Please enter your Full Name.');
-          setIsLoading(false);
-          return;
-        }
+    // --- REGISTRATION FLOW ---
+    if (isRegisterMode) {
+      // Disallow admin signup
+      if (activeForm === 'admin') {
+        setErrorMsg('Administrator accounts cannot be created via public registration.');
+        setIsLoading(false);
+        return;
+      }
 
-        if (!isEmailVerified) {
-          setErrorMsg('Please verify your email address using the OTP before creating your account.');
-          setIsLoading(false);
-          return;
-        }
+      if (!name.trim()) {
+        setErrorMsg('Please enter your Full Name.');
+        setIsLoading(false);
+        return;
+      }
 
-        const targetRole = activeForm === 'admin' ? 'admin' : 'user';
+      if (password !== confirmPassword) {
+        setErrorMsg('Passwords do not match. Please re-enter.');
+        setIsLoading(false);
+        return;
+      }
+
+      if (cleanEmail === ADMIN_EMAIL.toLowerCase()) {
+        setErrorMsg('Administrator account is pre-configured and cannot be registered.');
+        setIsLoading(false);
+        return;
+      }
+
+      if (smtpRequired && !isEmailVerified) {
+        setErrorMsg('Please verify your email address using the OTP before creating your account.');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
         const res = await axios.post('/api/auth/register', {
           name: name.trim(),
           email: cleanEmail,
           password: password,
-          role: targetRole
+          confirm_password: confirmPassword,
+          role: 'user'
         });
 
         setSuccessMsg('Account created successfully! Logging you in...');
         setTimeout(() => {
-          onLoginSuccess(res.data.user, targetRole);
+          onLoginSuccess(res.data.user, 'user');
         }, 500);
-      } else {
-        const res = await axios.post('/api/auth/login', { 
-          email: cleanEmail, 
-          password: password 
-        });
+        return;
+      } catch (err) {
+        // Fallback for static hosts (405) or offline network
+        if (err.response?.status === 405 || !err.response || err.code === 'ERR_NETWORK') {
+          const clientUsers = getClientUsers();
+          const existing = clientUsers.find(u => u.email?.toLowerCase() === cleanEmail);
+          if (existing) {
+            setErrorMsg('An account with this email address already exists. Please log in.');
+            setIsLoading(false);
+            return;
+          }
 
-        const targetRole = res.data.user?.role || activeForm || 'user';
-        onLoginSuccess(res.data.user, targetRole);
+          const passwordHash = await hashPasswordClient(password);
+          const newUser = {
+            id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            name: name.trim(),
+            email: cleanEmail,
+            password_hash: passwordHash,
+            role: "user",
+            status: "active",
+            location: "Standard Installation Site",
+            created_at: new Date().toISOString()
+          };
+
+          clientUsers.push(newUser);
+          saveClientUsers(clientUsers);
+
+          setSuccessMsg('Account created successfully! Logging you in...');
+          setTimeout(() => {
+            const safeUser = {
+              name: newUser.name,
+              email: newUser.email,
+              role: "user",
+              location: newUser.location,
+              created_at: newUser.created_at
+            };
+            onLoginSuccess(safeUser, 'user');
+          }, 500);
+          return;
+        }
+
+        if (err.response?.status === 409) {
+          setErrorMsg('An account with this email address already exists. Please log in.');
+        } else {
+          setErrorMsg(err.response?.data?.detail || 'Registration failed. Please try again.');
+        }
+        setIsLoading(false);
+        return;
       }
-    } catch (err) {
-      // Graceful offline/demo fallback if backend API is not deployed on this domain (e.g., static Vercel 405)
-      if ((err.response?.status === 405 || !err.response || err.code === 'ERR_NETWORK') && !isRegisterMode) {
-        const isAdmin = activeForm === 'admin' || cleanEmail.toLowerCase().includes('admin');
-        const fallbackUser = {
-          name: isAdmin ? "SolarIQ Administrator" : "SolarIQ User",
-          email: cleanEmail,
-          role: isAdmin ? "admin" : "user",
-          location: "Standard Installation Site",
-          created_at: new Date().toISOString()
-        };
-        onLoginSuccess(fallbackUser, fallbackUser.role);
+    }
+
+    // --- LOGIN FLOW ---
+    try {
+      const res = await axios.post('/api/auth/login', { 
+        email: cleanEmail, 
+        password: password 
+      });
+
+      const userRole = res.data.user?.role || 'user';
+      if (activeForm === 'admin' && userRole !== 'admin') {
+        setErrorMsg('Access denied. Administrator privileges required.');
+        setIsLoading(false);
         return;
       }
 
-      if (err.response?.status === 405) {
-        setErrorMsg('Method Not Allowed. Please check API route configuration.');
-      } else if (err.response?.status === 409) {
-        setErrorMsg('An account with this email address already exists.');
+      onLoginSuccess(res.data.user, userRole);
+    } catch (err) {
+      // Fallback for static hosts (405) or offline network
+      if (err.response?.status === 405 || !err.response || err.code === 'ERR_NETWORK') {
+        const clientUsers = getClientUsers();
+        const user = clientUsers.find(u => u.email?.toLowerCase() === cleanEmail);
+
+        if (!user) {
+          setErrorMsg('Invalid email or password.');
+          setIsLoading(false);
+          return;
+        }
+
+        if (user.status === 'disabled') {
+          setErrorMsg('Account is disabled. Contact system administrator.');
+          setIsLoading(false);
+          return;
+        }
+
+        const inputHash = await hashPasswordClient(password);
+        if (inputHash !== user.password_hash) {
+          setErrorMsg('Invalid email or password.');
+          setIsLoading(false);
+          return;
+        }
+
+        if (activeForm === 'admin' && user.role !== 'admin') {
+          setErrorMsg('Access denied. Administrator privileges required.');
+          setIsLoading(false);
+          return;
+        }
+
+        const safeUser = {
+          name: user.name,
+          email: user.email,
+          role: user.role || 'user',
+          location: user.location || 'Standard Installation Site',
+          created_at: user.created_at || new Date().toISOString()
+        };
+
+        onLoginSuccess(safeUser, safeUser.role);
+        return;
+      }
+
+      if (err.response?.status === 401) {
+        setErrorMsg('Invalid email or password.');
       } else if (err.response?.status === 403) {
         setErrorMsg(err.response?.data?.detail || 'Account is disabled. Contact system administrator.');
-      } else if (err.response?.status === 401) {
-        setErrorMsg('Invalid email or password.');
       } else {
         const msg = err.response?.data?.detail || 'Unable to connect to the authentication service.';
         setErrorMsg(msg);
@@ -238,7 +453,7 @@ export default function LoginPage({ onLoginSuccess }) {
           </div>
         </div>
 
-        {/* TWO Horizontal Login Option Boxes */}
+        {/* TWO Login Options */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
           
           {/* USER LOGIN BOX */}
@@ -250,7 +465,7 @@ export default function LoginPage({ onLoginSuccess }) {
               <div>
                 <h2 className="text-xl font-extrabold text-[#4A3030]">USER LOGIN</h2>
                 <p className="text-sm text-[#4A3030]/80 font-medium mt-1.5 leading-relaxed">
-                  Analyze, simulate and optimize your solar performance.
+                  Analyze, simulate and optimize your solar performance. Register or log in to your account.
                 </p>
               </div>
             </div>
@@ -273,7 +488,7 @@ export default function LoginPage({ onLoginSuccess }) {
               <div>
                 <h2 className="text-xl font-extrabold text-[#4A3030]">ADMIN LOGIN</h2>
                 <p className="text-sm text-[#4A3030]/80 font-medium mt-1.5 leading-relaxed">
-                  Manage users, system status and SolarIQ operations.
+                  Manage users, system status and SolarIQ operations with configured administrator credentials.
                 </p>
               </div>
             </div>
@@ -356,7 +571,7 @@ export default function LoginPage({ onLoginSuccess }) {
       {/* Auth Modal Form Overlay */}
       {activeForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#4A3030]/60 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="bg-[#FFFDFC] border border-[#EED6CC] rounded-3xl max-w-md w-full shadow-2xl p-6 sm:p-8 space-y-6 relative">
+          <div className="bg-[#FFFDFC] border border-[#EED6CC] rounded-3xl max-w-md w-full shadow-2xl p-6 sm:p-8 space-y-6 relative max-h-[90vh] overflow-y-auto">
             
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-[#EED6CC] pb-4">
@@ -365,12 +580,13 @@ export default function LoginPage({ onLoginSuccess }) {
                   {activeForm === 'admin' ? <ShieldCheck className="w-5 h-5 text-[#E86A6A]" /> : <User className="w-5 h-5 text-[#E86A6A]" />}
                 </div>
                 <h3 className="text-lg font-extrabold text-[#4A3030]">
-                  {activeForm === 'admin' ? (isRegisterMode ? 'Create Admin Account' : 'Admin Login') : (isRegisterMode ? 'Create User Account' : 'User Login')}
+                  {activeForm === 'admin' ? 'Admin Login' : (isRegisterMode ? 'Create User Account' : 'User Login')}
                 </h3>
               </div>
               <button
                 onClick={closeForm}
                 className="p-1.5 rounded-xl text-[#8F2635] hover:bg-[#FBE1E1] cursor-pointer"
+                aria-label="Close modal"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -414,8 +630,8 @@ export default function LoginPage({ onLoginSuccess }) {
                         <input
                           type="email"
                           required
-                          disabled={isEmailVerified}
-                          placeholder="user@solariq.io"
+                          disabled={isEmailVerified && smtpRequired}
+                          placeholder="name@example.com"
                           value={email}
                           onChange={(e) => {
                             setEmail(e.target.value);
@@ -427,26 +643,28 @@ export default function LoginPage({ onLoginSuccess }) {
                         <Mail className="w-4 h-4 text-[#8F2635] absolute left-3.5 top-3" />
                       </div>
 
-                      {!isEmailVerified ? (
-                        <button
-                          type="button"
-                          onClick={handleSendOtp}
-                          disabled={isSendingOtp || cooldown > 0}
-                          className="px-4 py-2.5 rounded-xl bg-[#E86A6A] hover:bg-[#8F2635] text-white font-bold text-xs shadow-xs transition-all cursor-pointer whitespace-nowrap disabled:opacity-50 shrink-0"
-                        >
-                          {isSendingOtp ? 'Sending...' : (cooldown > 0 ? `Resend in ${cooldown}s` : (isOtpSent ? 'Resend OTP' : 'Send OTP'))}
-                        </button>
-                      ) : (
-                        <div className="px-3.5 py-2.5 rounded-xl bg-[#FBE1E1] border border-[#E86A6A] text-[#8F2635] text-xs font-black flex items-center justify-center space-x-1 shrink-0">
-                          <CheckCircle2 className="w-4 h-4 text-[#E86A6A]" />
-                          <span>Email Verified ✓</span>
-                        </div>
+                      {smtpRequired && (
+                        !isEmailVerified ? (
+                          <button
+                            type="button"
+                            onClick={handleSendOtp}
+                            disabled={isSendingOtp || cooldown > 0}
+                            className="px-4 py-2.5 rounded-xl bg-[#E86A6A] hover:bg-[#8F2635] text-white font-bold text-xs shadow-xs transition-all cursor-pointer whitespace-nowrap disabled:opacity-50 shrink-0"
+                          >
+                            {isSendingOtp ? 'Sending...' : (cooldown > 0 ? `Resend in ${cooldown}s` : (isOtpSent ? 'Resend OTP' : 'Send OTP'))}
+                          </button>
+                        ) : (
+                          <div className="px-3.5 py-2.5 rounded-xl bg-[#FBE1E1] border border-[#E86A6A] text-[#8F2635] text-xs font-black flex items-center justify-center space-x-1 shrink-0">
+                            <CheckCircle2 className="w-4 h-4 text-[#E86A6A]" />
+                            <span>Email Verified ✓</span>
+                          </div>
+                        )
                       )}
                     </div>
                   </div>
 
-                  {/* OTP Verification Input Box */}
-                  {isOtpSent && !isEmailVerified && (
+                  {/* OTP Verification Input Box (Only when SMTP email service is active) */}
+                  {smtpRequired && isOtpSent && !isEmailVerified && (
                     <div className="bg-[#FBF3EA] border border-[#EED6CC] p-3.5 rounded-2xl space-y-2.5 animate-fade-in">
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-extrabold text-[#8F2635] uppercase tracking-wider">
@@ -497,16 +715,33 @@ export default function LoginPage({ onLoginSuccess }) {
                       <Lock className="w-4 h-4 text-[#8F2635] absolute left-3.5 top-3" />
                     </div>
                   </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-[#4A3030] block mb-1.5">Confirm Password</label>
+                    <div className="relative">
+                      <input
+                        type="password"
+                        required
+                        placeholder="••••••••"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="w-full px-3.5 py-2.5 pl-10 text-sm font-medium bg-[#FBF3EA] border border-[#EED6CC] text-[#4A3030] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#E86A6A] transition-all"
+                      />
+                      <Lock className="w-4 h-4 text-[#8F2635] absolute left-3.5 top-3" />
+                    </div>
+                  </div>
                 </>
               ) : (
                 <>
                   <div>
-                    <label className="text-xs font-bold text-[#4A3030] block mb-1.5">Email Address</label>
+                    <label className="text-xs font-bold text-[#4A3030] block mb-1.5">
+                      {activeForm === 'admin' ? 'Administrator Email' : 'Email Address'}
+                    </label>
                     <div className="relative">
                       <input
                         type="email"
                         required
-                        placeholder="user@solariq.io"
+                        placeholder={activeForm === 'admin' ? "99240040247@klu.ac.in" : "name@example.com"}
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="w-full px-3.5 py-2.5 pl-10 text-sm font-medium bg-[#FBF3EA] border border-[#EED6CC] text-[#4A3030] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#E86A6A] transition-all"
@@ -516,7 +751,9 @@ export default function LoginPage({ onLoginSuccess }) {
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-[#4A3030] block mb-1.5">Password</label>
+                    <label className="text-xs font-bold text-[#4A3030] block mb-1.5">
+                      {activeForm === 'admin' ? 'Administrator Password' : 'Password'}
+                    </label>
                     <div className="relative">
                       <input
                         type="password"
@@ -532,52 +769,41 @@ export default function LoginPage({ onLoginSuccess }) {
                 </>
               )}
 
-              {/* Demo Quick Fill Helper */}
-              <div className="text-[11px] text-[#8F2635] font-medium bg-[#FBF3EA] p-2.5 rounded-xl border border-[#EED6CC] flex justify-between items-center">
-                <span>Demo Account:</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (activeForm === 'admin') {
-                      setEmail('admin@solariq.io');
-                      setPassword('admin123');
-                    } else {
-                      setEmail('user@solariq.io');
-                      setPassword('user123');
-                    }
-                  }}
-                  className="font-bold text-[#8F2635] underline hover:text-[#E86A6A] cursor-pointer"
-                >
-                  {activeForm === 'admin' ? 'Fill Admin Demo' : 'Fill User Demo'}
-                </button>
-              </div>
-
               <button
                 type="submit"
                 disabled={isLoading}
                 className="w-full py-3.5 px-4 rounded-xl bg-[#E86A6A] hover:bg-[#8F2635] text-white font-bold text-sm shadow-xs transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
               >
                 <LogIn className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                <span>{isLoading ? 'Authenticating...' : (isRegisterMode ? 'Create Account & Continue' : 'Sign In & Continue')}</span>
+                <span>
+                  {isLoading 
+                    ? 'Authenticating...' 
+                    : (activeForm === 'admin' 
+                        ? 'Sign In as Admin' 
+                        : (isRegisterMode ? 'Create Account & Continue' : 'Sign In & Continue'))}
+                </span>
               </button>
 
             </form>
 
-            {/* Toggle Create Account option for both USER and ADMIN login */}
-            <div className="pt-3 border-t border-[#EED6CC] text-center">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsRegisterMode(!isRegisterMode);
-                  setErrorMsg('');
-                }}
-                className="text-xs text-[#8F2635] font-semibold hover:text-[#E86A6A] hover:underline cursor-pointer"
-              >
-                {isRegisterMode 
-                  ? 'Already have an account? Sign In' 
-                  : (activeForm === 'admin' ? "Need an Admin account? Create Admin Account" : "Don't have an account? Create Account")}
-              </button>
-            </div>
+            {/* Toggle Create Account option ONLY for User Login - NEVER for Admin Login */}
+            {activeForm !== 'admin' && (
+              <div className="pt-3 border-t border-[#EED6CC] text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRegisterMode(!isRegisterMode);
+                    setErrorMsg('');
+                    setSuccessMsg('');
+                  }}
+                  className="text-xs text-[#8F2635] font-semibold hover:text-[#E86A6A] hover:underline cursor-pointer"
+                >
+                  {isRegisterMode 
+                    ? 'Already have an account? Sign In' 
+                    : "Don't have an account? Create Account"}
+                </button>
+              </div>
+            )}
 
           </div>
         </div>

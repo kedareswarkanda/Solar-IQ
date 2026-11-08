@@ -326,34 +326,46 @@ class SolarIQDatabaseManager:
         return users
 
     def seed_default_accounts(self, hash_func):
-        """Seeds default Admin and User accounts if none exist."""
-        admin_user = self.find_user_by_email("admin@solariq.io")
+        """Seeds initial Administrator account (99240040247@klu.ac.in) and cleans up legacy demo accounts."""
+        admin_email = os.getenv("ADMIN_EMAIL", "99240040247@klu.ac.in").strip().lower()
+        admin_password = os.getenv("ADMIN_PASSWORD", "Kedar@12345")
+
+        # Automatically purge legacy demo accounts
+        self.delete_user_account("admin@solariq.io")
+        self.delete_user_account("user@solariq.io")
+
+        admin_user = self.find_user_by_email(admin_email)
         if not admin_user:
             self.save_user({
-                "name": "SolarIQ Admin",
-                "email": "admin@solariq.io",
-                "password_hash": hash_func("admin123"),
+                "name": "Administrator",
+                "email": admin_email,
+                "password_hash": hash_func(admin_password),
                 "role": "admin",
-                "status": "active"
+                "status": "active",
+                "location": "Global Solar Monitoring Hub"
             })
-            print("[SolarIQ DB] Seeded default Admin account (admin@solariq.io).")
-
-        std_user = self.find_user_by_email("user@solariq.io")
-        if not std_user:
-            self.save_user({
-                "name": "SolarIQ Operator",
-                "email": "user@solariq.io",
-                "password_hash": hash_func("user123"),
-                "role": "user",
-                "status": "active"
-            })
-            print("[SolarIQ DB] Seeded default User account (user@solariq.io).")
+            print(f"[SolarIQ DB] Initialized Administrator account ({admin_email}).")
+        else:
+            # Enforce admin role and ensure password matches configured ADMIN_PASSWORD
+            updated = False
+            if admin_user.get("role") != "admin":
+                admin_user["role"] = "admin"
+                updated = True
+            if admin_user.get("status") != "active":
+                admin_user["status"] = "active"
+                updated = True
+            current_hash = hash_func(admin_password)
+            if admin_user.get("password_hash") != current_hash:
+                admin_user["password_hash"] = current_hash
+                updated = True
+            if updated:
+                self.save_user(admin_user)
 
     def save_history(self, record: Dict[str, Any], user_email: Optional[str] = None) -> str:
         """Saves an analysis run to MongoDB history collection with user_email isolation."""
         record_copy = dict(record)
         record_copy["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        record_copy["user_email"] = user_email.strip().lower() if user_email else "user@solariq.io"
+        record_copy["user_email"] = user_email.strip().lower() if user_email else "99240040247@klu.ac.in"
 
         if self.use_mongo and self.db is not None:
             try:
@@ -439,7 +451,7 @@ class SolarIQDatabaseManager:
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "params": params,
             "results": results,
-            "user_email": user_email.strip().lower() if user_email else "user@solariq.io"
+            "user_email": user_email.strip().lower() if user_email else "99240040247@klu.ac.in"
         }
 
         if self.use_mongo and self.db is not None:

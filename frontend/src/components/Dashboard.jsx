@@ -106,7 +106,7 @@ export default function Dashboard({
             </div>
             <div className="text-xs text-[#8F2635] font-semibold mt-1 flex items-center space-x-1.5">
               <Mail className="w-3.5 h-3.5 text-[#E86A6A]" />
-              <span>{currentUser?.email || 'user@solariq.io'}</span>
+              <span>{currentUser?.email || 'user@example.com'}</span>
             </div>
           </div>
         </div>

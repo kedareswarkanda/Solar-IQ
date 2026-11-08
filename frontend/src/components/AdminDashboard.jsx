@@ -28,46 +28,26 @@ import axios from 'axios';
 
 const DEFAULT_ADMIN_USERS = [
   {
-    name: "SolarIQ Administrator",
-    email: "admin@solariq.io",
+    name: "System Administrator",
+    email: "99240040247@klu.ac.in",
     role: "admin",
     num_analyses: 142,
     num_scenarios: 18,
     status: "active",
     location: "Global Solar Monitoring Hub"
-  },
-  {
-    name: "SolarIQ User",
-    email: "user@solariq.io",
-    role: "user",
-    num_analyses: 24,
-    num_scenarios: 5,
-    status: "active",
-    location: "Anantapur Urban / Town"
-  },
-  {
-    name: "Kanda Kedareswar",
-    email: "kedarkanda93@gmail.com",
-    role: "admin",
-    num_analyses: 89,
-    num_scenarios: 12,
-    status: "active",
-    location: "Andhra Pradesh, India"
   }
 ];
 
 const DEFAULT_ADMIN_STATS = {
-  total_users: 3,
-  total_analyses: 255,
-  total_scenarios: 35,
+  total_users: 1,
+  total_analyses: 142,
+  total_scenarios: 18,
   mongodb_status: "Active (Zero-Downtime Fallback)",
   ml_status: "Active (XGBoost Regressor, R² = 0.9880)"
 };
 
 const DEFAULT_ACTIVITY_LOGS = [
-  { timestamp: "2026-11-07 10:45:00", event_type: "Admin Dashboard Login", user_email: "admin@solariq.io" },
-  { timestamp: "2026-11-07 10:30:12", event_type: "Tilt Optimization Run", user_email: "user@solariq.io" },
-  { timestamp: "2026-11-07 09:15:44", event_type: "Physics Analysis Simulation", user_email: "kedarkanda93@gmail.com" }
+  { timestamp: "2026-11-08 08:30:00", event_type: "Admin Dashboard Login", user_email: "99240040247@klu.ac.in" }
 ];
 
 export default function AdminDashboard({ user, onLogout, onSwitchToUserView }) {
@@ -333,7 +313,7 @@ export default function AdminDashboard({ user, onLogout, onSwitchToUserView }) {
                   <span className="px-2 py-0.5 rounded-md bg-[#FBE1E1] text-[#8F2635] font-bold text-[10px] uppercase tracking-wider">
                     Administrator
                   </span>
-                  <span className="hidden sm:inline">• {user?.email || 'admin@solariq.io'}</span>
+                  <span className="hidden sm:inline">• {user?.email || '99240040247@klu.ac.in'}</span>
                 </div>
               </div>
             </div>
@@ -838,7 +818,7 @@ export default function AdminDashboard({ user, onLogout, onSwitchToUserView }) {
                   <div>
                     <h2 className="text-lg font-black text-[#4A3030]">{adminName}</h2>
                     <p className="text-xs font-bold text-[#8F2635] uppercase tracking-wider">System Administrator</p>
-                    <p className="text-xs text-[#4A3030]/70 font-medium">{user?.email || 'admin@solariq.io'}</p>
+                    <p className="text-xs text-[#4A3030]/70 font-medium">{user?.email || '99240040247@klu.ac.in'}</p>
                   </div>
                 </div>
 

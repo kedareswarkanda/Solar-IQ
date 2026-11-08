@@ -107,16 +107,24 @@ def startup_event():
 
 # --- Authentication & Authorization Dependencies ---
 
-def get_current_user(x_user_email: Optional[str] = Header(None, alias="X-SolarIQ-User-Email")):
-    if not x_user_email:
-        # Fallback default for demo calls
-        return {"email": "user@solariq.io", "role": "user", "name": "SolarIQ User", "status": "active"}
-    user = db_manager.find_user_by_email(x_user_email)
+def get_current_user(x_user_email: Optional[str] = Header(None, alias="X-SolarIQ-User-Email"),
+                     authorization: Optional[str] = Header(None, alias="Authorization")):
+    email = None
+    if x_user_email:
+        email = x_user_email.strip().lower()
+    elif authorization and authorization.lower().startswith("bearer "):
+        email = authorization[7:].strip().lower()
+
+    if not email:
+        raise HTTPException(status_code=401, detail="Authentication required. Please log in.")
+
+    # Explicitly reject legacy demo emails
+    if email in ("admin@solariq.io", "user@solariq.io"):
+        raise HTTPException(status_code=401, detail="Demo credentials are disabled. Please sign in with registered credentials.")
+
+    user = db_manager.find_user_by_email(email)
     if not user:
-        db_manager.seed_default_accounts(hash_password)
-        user = db_manager.find_user_by_email(x_user_email)
-        if not user:
-            raise HTTPException(status_code=401, detail="User account not found.")
+        raise HTTPException(status_code=401, detail="User account not found.")
     if user.get("status") == "disabled":
         raise HTTPException(status_code=403, detail="Your account has been disabled by an administrator.")
     return user
@@ -141,10 +149,11 @@ class VerifyOTPPayload(BaseModel):
     otp: str = Field(..., description="6-digit OTP Code")
 
 class RegisterPayload(BaseModel):
-    name: str = Field(..., description="User Full Name")
-    email: str = Field(..., description="User Email")
-    password: str = Field(..., description="User Password")
-    role: str = Field("user", description="Role: 'user' or 'admin'")
+    name: str = Field(..., min_length=1, description="User Full Name")
+    email: str = Field(..., min_length=3, description="User Email")
+    password: str = Field(..., min_length=6, description="User Password")
+    confirm_password: Optional[str] = Field(None, description="Confirm Password")
+    role: Optional[str] = Field("user", description="Requested role (strictly constrained to 'user')")
     location: Optional[str] = Field("Standard Installation Site", description="Installation location")
 
 class ProfileUpdatePayload(BaseModel):
@@ -217,15 +226,17 @@ class LocationPreferencePayload(BaseModel):
 @app.post("/api/login")
 @app.post("/api/login/")
 def login_user(payload: LoginPayload):
-    user = db_manager.find_user_by_email(payload.email)
+    clean_email = payload.email.strip().lower()
+
+    # Reject demo accounts explicitly
+    if clean_email in ("admin@solariq.io", "user@solariq.io"):
+        raise HTTPException(status_code=401, detail="Demo accounts are disabled. Please sign in with registered credentials.")
+
+    user = db_manager.find_user_by_email(clean_email)
     if not user:
-        db_manager.seed_default_accounts(hash_password)
-        user = db_manager.find_user_by_email(payload.email)
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid email or password.")
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
     
     if user.get("status") == "disabled":
-
         raise HTTPException(status_code=403, detail="Account is disabled. Contact system administrator.")
 
     input_hash = hash_password(payload.password)
@@ -340,23 +351,55 @@ def verify_otp(payload: VerifyOTPPayload):
         "message": "Email address verified ✓"
     }
 
+@app.get("/api/auth/config")
+@app.get("/api/auth/config/")
+def get_auth_config():
+    """Returns dynamic authentication configuration (e.g. if SMTP verification is required)."""
+    return {
+        "status": "success",
+        "email_verification_required": email_service.is_email_configured(),
+        "admin_email": os.getenv("ADMIN_EMAIL", "99240040247@klu.ac.in").strip().lower()
+    }
+
 @app.post("/api/auth/register")
 @app.post("/api/auth/register/")
 @app.post("/api/register")
 @app.post("/api/register/")
 def register_user(payload: RegisterPayload):
+    clean_name = payload.name.strip()
     clean_email = payload.email.strip().lower()
+
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="Full Name is required.")
+
+    if not clean_email or "@" not in clean_email or "." not in clean_email.split("@")[-1]:
+        raise HTTPException(status_code=400, detail="Please enter a valid email address.")
+
+    if len(payload.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long.")
+
+    if payload.confirm_password is not None and payload.confirm_password != payload.password:
+        raise HTTPException(status_code=400, detail="Passwords do not match.")
+
+    admin_email = os.getenv("ADMIN_EMAIL", "99240040247@klu.ac.in").strip().lower()
+    if clean_email == admin_email:
+        raise HTTPException(status_code=400, detail="Administrator account cannot be registered through public registration.")
+
+    if clean_email in ("admin@solariq.io", "user@solariq.io"):
+        raise HTTPException(status_code=400, detail="Registration for this email is disallowed.")
 
     existing = db_manager.find_user_by_email(clean_email)
     if existing:
         raise HTTPException(status_code=409, detail="An account with this email address already exists.")
 
-    # Enforce backend email verification
-    if not db_manager.is_email_verified(clean_email):
-        raise HTTPException(status_code=400, detail="Please verify your email address using the OTP before creating your account.")
+    # Enforce backend email verification only if SMTP service is configured
+    if email_service.is_email_configured():
+        if not db_manager.is_email_verified(clean_email):
+            raise HTTPException(status_code=400, detail="Please verify your email address using the OTP before creating your account.")
 
+    # Strictly enforce role = 'user'
     user_doc = {
-        "name": payload.name,
+        "name": clean_name,
         "email": clean_email,
         "password_hash": hash_password(payload.password),
         "role": "user",

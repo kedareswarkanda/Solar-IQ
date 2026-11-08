@@ -213,22 +213,42 @@ def test_user_registration_and_login():
     assert bad_login.status_code == 401
 
 def test_admin_login_and_authorization():
-    # 1. Admin login
+    # 1. Admin login with correct credentials
     admin_login = client.post("/api/auth/login", json={
-        "email": "admin@solariq.io",
-        "password": "admin123"
+        "email": "99240040247@klu.ac.in",
+        "password": "Kedar@12345"
     })
     assert admin_login.status_code == 200
     assert admin_login.json()["user"]["role"] == "admin"
 
-    # 2. Admin accessing admin stats -> Allowed
-    admin_headers = {"X-SolarIQ-User-Email": "admin@solariq.io"}
+    # 2. Admin login with incorrect password -> 401
+    bad_admin_login = client.post("/api/auth/login", json={
+        "email": "99240040247@klu.ac.in",
+        "password": "WrongPassword999!"
+    })
+    assert bad_admin_login.status_code == 401
+
+    # 3. Attempt login with old demo credentials -> must be rejected (401)
+    demo_admin_login = client.post("/api/auth/login", json={
+        "email": "admin@solariq.io",
+        "password": "admin123"
+    })
+    assert demo_admin_login.status_code == 401
+
+    demo_user_login = client.post("/api/auth/login", json={
+        "email": "user@solariq.io",
+        "password": "user123"
+    })
+    assert demo_user_login.status_code == 401
+
+    # 4. Admin accessing admin stats -> Allowed
+    admin_headers = {"X-SolarIQ-User-Email": "99240040247@klu.ac.in"}
     stats_res = client.get("/api/admin/stats", headers=admin_headers)
     assert stats_res.status_code == 200
     assert "total_users" in stats_res.json()
 
-    # 3. Normal user accessing admin stats -> 403 Forbidden
-    user_headers = {"X-SolarIQ-User-Email": "user@solariq.io"}
+    # 5. Normal user accessing admin stats -> 403 Forbidden
+    user_headers = {"X-SolarIQ-User-Email": "test_engineer@solariq.io"}
     forbidden_res = client.get("/api/admin/stats", headers=user_headers)
     assert forbidden_res.status_code == 403
 
@@ -270,8 +290,8 @@ def test_user_data_isolation():
 
 
 def test_account_disabling_and_profile():
-    headers_admin = {"X-SolarIQ-User-Email": "admin@solariq.io"}
-    headers_user = {"X-SolarIQ-User-Email": "user@solariq.io"}
+    headers_admin = {"X-SolarIQ-User-Email": "99240040247@klu.ac.in"}
+    headers_user = {"X-SolarIQ-User-Email": "test_engineer@solariq.io"}
 
     # 1. Update Profile
     prof_res = client.post("/api/auth/profile", json={
@@ -281,20 +301,20 @@ def test_account_disabling_and_profile():
     assert prof_res.status_code == 200
 
     # 2. Disable user account via admin endpoint
-    client.patch("/api/admin/users/user@solariq.io/status", json={"status": "disabled"}, headers=headers_admin)
+    client.patch("/api/admin/users/test_engineer@solariq.io/status", json={"status": "disabled"}, headers=headers_admin)
 
     # 3. Disabled user login attempt -> 403 Forbidden
     disabled_login = client.post("/api/auth/login", json={
-        "email": "user@solariq.io",
-        "password": "user123"
+        "email": "test_engineer@solariq.io",
+        "password": "securepassword123"
     })
     assert disabled_login.status_code == 403
 
     # Re-enable user account for operational state
-    client.patch("/api/admin/users/user@solariq.io/status", json={"status": "active"}, headers=headers_admin)
+    client.patch("/api/admin/users/test_engineer@solariq.io/status", json={"status": "active"}, headers=headers_admin)
 
 def test_location_and_weather_endpoints():
-    headers_user = {"X-SolarIQ-User-Email": "user@solariq.io"}
+    headers_user = {"X-SolarIQ-User-Email": "test_engineer@solariq.io"}
     
     # 1. Countries
     res_c = client.get("/api/location/countries")
@@ -356,7 +376,7 @@ def test_public_registration_role_enforcement():
     assert res.json()["user"]["role"] == "user"
 
 def test_profile_photo_upload():
-    headers = {"X-SolarIQ-User-Email": "user@solariq.io"}
+    headers = {"X-SolarIQ-User-Email": "test_engineer@solariq.io"}
     dummy_jpg = b"\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x01\x00\x60\x00\x60\x00\x00DummyJpgData"
 
     # 1. Valid JPG photo upload -> Succeeds
@@ -415,7 +435,7 @@ def test_reports_crud_and_user_isolation():
     assert del_a.status_code == 200
 
 def test_admin_database_status_endpoint():
-    headers_admin = {"X-SolarIQ-User-Email": "admin@solariq.io"}
+    headers_admin = {"X-SolarIQ-User-Email": "99240040247@klu.ac.in"}
     res = client.get("/api/admin/database", headers=headers_admin)
     assert res.status_code == 200
     data = res.json()
@@ -428,5 +448,39 @@ def test_admin_database_status_endpoint():
     assert "location_preferences" in colls
     assert "activity_logs" in colls
     assert "reports" in colls
+
+def test_registration_validation_and_security_controls():
+    # 1. Test registration with mismatched passwords -> 400
+    res_mismatch = client.post("/api/auth/register", json={
+        "name": "Mismatch Test",
+        "email": "mismatch@test.com",
+        "password": "Password123",
+        "confirm_password": "DifferentPassword456"
+    })
+    assert res_mismatch.status_code == 400
+    assert "passwords do not match" in res_mismatch.json()["detail"].lower()
+
+    # 2. Test registration with password < 6 characters -> 400
+    res_short = client.post("/api/auth/register", json={
+        "name": "Short Password Test",
+        "email": "short@test.com",
+        "password": "123",
+        "confirm_password": "123"
+    })
+    assert res_short.status_code == 400
+
+    # 3. Test attempting to register the administrator email through public registration -> 400
+    res_admin_reg = client.post("/api/auth/register", json={
+        "name": "Fake Admin",
+        "email": "99240040247@klu.ac.in",
+        "password": "HackerPassword123",
+        "confirm_password": "HackerPassword123"
+    })
+    assert res_admin_reg.status_code == 400
+    assert "administrator account cannot be registered" in res_admin_reg.json()["detail"].lower()
+
+    # 4. Test unauthenticated request to protected endpoint -> 401
+    res_unauth = client.get("/api/auth/me")
+    assert res_unauth.status_code == 401
 
 

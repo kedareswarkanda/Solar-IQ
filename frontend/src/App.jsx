@@ -215,7 +215,8 @@ export default function App() {
   // Auth Callbacks
   const handleLoginSuccess = (user, selectedRole) => {
     setCurrentUser(user);
-    const mode = selectedRole === 'admin' || user.role === 'admin' ? selectedRole || user.role : 'user';
+    // Strict role-based view enforcement: only actual admins can enter admin view
+    const mode = user.role === 'admin' ? 'admin' : 'user';
     setViewMode(mode);
     try {
       localStorage.setItem('solariq_user', JSON.stringify(user));
