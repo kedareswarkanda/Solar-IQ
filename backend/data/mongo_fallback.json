@@ -11,26 +11,6 @@
       "location": "Global Solar Monitoring Hub"
     },
     {
-      "name": "OTP Test User",
-      "email": "otp_test_user@solariq.io",
-      "password_hash": "206cf99e1ce29575a10c9a00314441d7cd0a8229ac52446e1510733087b8b356",
-      "role": "user",
-      "location": "Standard Installation Site",
-      "status": "active",
-      "created_at": "2026-11-07 09:48:24",
-      "last_login": "2026-11-07 09:48:24"
-    },
-    {
-      "name": "Test Engineer",
-      "email": "test_engineer@solariq.io",
-      "password_hash": "70bf5f29a4a5ff3cb756e9fd3b6809b3135ab5c4353017643ae608c6723bb457",
-      "role": "user",
-      "location": "Standard Installation Site",
-      "status": "active",
-      "created_at": "2026-11-07 09:48:24",
-      "last_login": "2026-11-07 09:48:24"
-    },
-    {
       "name": "User A",
       "email": "usera@solariq.io",
       "password_hash": "2556bed2f80bc48519e26cb41d7b3c68b8dd42339a237342b30ca38238549918",
@@ -51,17 +31,90 @@
       "last_login": "2026-11-07 09:48:25"
     },
     {
+      "name": "OTP Test User",
+      "email": "otp_test_user@solariq.io",
+      "password_hash": "206cf99e1ce29575a10c9a00314441d7cd0a8229ac52446e1510733087b8b356",
+      "role": "user",
+      "location": "Standard Installation Site",
+      "status": "active",
+      "created_at": "2026-11-08 14:48:11",
+      "last_login": "2026-11-08 14:48:11"
+    },
+    {
+      "name": "Updated Operator Name",
+      "email": "test_engineer@solariq.io",
+      "password_hash": "70bf5f29a4a5ff3cb756e9fd3b6809b3135ab5c4353017643ae608c6723bb457",
+      "role": "user",
+      "location": "Solar Site Alpha",
+      "status": "active",
+      "created_at": "2026-11-08 14:48:12",
+      "last_login": "2026-11-08 14:48:12",
+      "photo": "/uploads/profile_photos/profile_bd5808aa46fd_1794129493.jpg",
+      "profile_photo_url": "/uploads/profile_photos/profile_bd5808aa46fd_1794129493.jpg",
+      "profile_photo_filename": "profile_bd5808aa46fd_1794129493.jpg",
+      "profile_photo_mime_type": "image/jpeg",
+      "profile_photo_updated_at": "2026-11-08 14:48:13",
+      "weather_location_pref": {
+        "country": "India",
+        "state": "Andhra Pradesh",
+        "district": "Anantapur",
+        "mandal": "Anantapur",
+        "village": "Kakkalapalli",
+        "latitude": 14.6542,
+        "longitude": 77.5891,
+        "display_name": "Kakkalapalli, Anantapur Mandal, Anantapur, Andhra Pradesh, India"
+      }
+    },
+    {
       "name": "Hacker User",
       "email": "hacker@solariq.io",
       "password_hash": "206cf99e1ce29575a10c9a00314441d7cd0a8229ac52446e1510733087b8b356",
       "role": "user",
       "location": "Standard Installation Site",
       "status": "active",
-      "created_at": "2026-11-07 09:48:30",
-      "last_login": "2026-11-07 09:48:30"
+      "created_at": "2026-11-08 14:48:15",
+      "last_login": "2026-11-08 14:48:15"
     }
   ],
   "history": [
+    {
+      "irradiance": 850.0,
+      "panel_temp": 35.0,
+      "num_panels": 1,
+      "tilt": 25.0,
+      "shading": 5.0,
+      "soiling": 3.0,
+      "physics_power_w": 296.64,
+      "ai_power_w": 265.35,
+      "efficiency_percent": 15.61,
+      "daily_energy_kwh": 1.56,
+      "co2_avoided_kg": 1.1,
+      "health_score": 86.3,
+      "optimal_tilt": 30.0,
+      "percentage_gain": 0.02,
+      "timestamp": "2026-11-08 14:48:13",
+      "user_email": "usera@solariq.io",
+      "id": 3
+    },
+    {
+      "irradiance": 850.0,
+      "panel_temp": 35.0,
+      "num_panels": 1,
+      "tilt": 25.0,
+      "shading": 5.0,
+      "soiling": 3.0,
+      "physics_power_w": 296.64,
+      "ai_power_w": 265.35,
+      "efficiency_percent": 15.61,
+      "daily_energy_kwh": 1.56,
+      "co2_avoided_kg": 1.1,
+      "health_score": 86.3,
+      "optimal_tilt": 30.0,
+      "percentage_gain": 0.02,
+      "timestamp": "2026-11-08 14:47:29",
+      "user_email": "usera@solariq.io",
+      "id": 2
+    },
     {
       "irradiance": 850.0,
       "panel_temp": 35.0,
@@ -95,9 +148,300 @@
       "display_name": "Kakkalapalli, Anantapur Mandal, Anantapur, Andhra Pradesh, India",
       "user_email": "user@solariq.io",
       "updated_at": "2026-11-07 09:48:30"
+    },
+    {
+      "country": "India",
+      "state": "Andhra Pradesh",
+      "district": "Anantapur",
+      "mandal": "Anantapur",
+      "village": "Kakkalapalli",
+      "latitude": 14.6542,
+      "longitude": 77.5891,
+      "display_name": "Kakkalapalli, Anantapur Mandal, Anantapur, Andhra Pradesh, India",
+      "user_email": "test_engineer@solariq.io",
+      "updated_at": "2026-11-08 14:48:14"
     }
   ],
   "activity_logs": [
+    {
+      "timestamp": "2026-11-08 14:48:15",
+      "event_type": "Report Created",
+      "user_email": "usera@solariq.io",
+      "metadata": {
+        "title": "User A Solar Audit Report"
+      },
+      "id": 68
+    },
+    {
+      "timestamp": "2026-11-08 14:48:15",
+      "event_type": "User Registration",
+      "user_email": "hacker@solariq.io",
+      "metadata": {
+        "role": "user"
+      },
+      "id": 67
+    },
+    {
+      "timestamp": "2026-11-08 14:48:14",
+      "event_type": "Location Preference Updated",
+      "user_email": "test_engineer@solariq.io",
+      "metadata": {
+        "location": "Kakkalapalli, Anantapur Mandal, Anantapur, Andhra Pradesh, India"
+      },
+      "id": 66
+    },
+    {
+      "timestamp": "2026-11-08 14:48:13",
+      "event_type": "Profile Photo Upload",
+      "user_email": "test_engineer@solariq.io",
+      "metadata": {},
+      "id": 65
+    },
+    {
+      "timestamp": "2026-11-08 14:48:13",
+      "event_type": "Account Status Toggle",
+      "user_email": "99240040247@klu.ac.in",
+      "metadata": {
+        "target_user": "test_engineer@solariq.io",
+        "new_status": "active"
+      },
+      "id": 64
+    },
+    {
+      "timestamp": "2026-11-08 14:48:13",
+      "event_type": "Account Status Toggle",
+      "user_email": "99240040247@klu.ac.in",
+      "metadata": {
+        "target_user": "test_engineer@solariq.io",
+        "new_status": "disabled"
+      },
+      "id": 63
+    },
+    {
+      "timestamp": "2026-11-08 14:48:13",
+      "event_type": "Profile Update",
+      "user_email": "test_engineer@solariq.io",
+      "metadata": {},
+      "id": 62
+    },
+    {
+      "timestamp": "2026-11-08 14:48:13",
+      "event_type": "Analysis Run",
+      "user_email": "usera@solariq.io",
+      "metadata": {},
+      "id": 61
+    },
+    {
+      "timestamp": "2026-11-08 14:48:12",
+      "event_type": "User Login",
+      "user_email": "99240040247@klu.ac.in",
+      "metadata": {
+        "role": "admin"
+      },
+      "id": 60
+    },
+    {
+      "timestamp": "2026-11-08 14:48:12",
+      "event_type": "User Login",
+      "user_email": "test_engineer@solariq.io",
+      "metadata": {
+        "role": "user"
+      },
+      "id": 59
+    },
+    {
+      "timestamp": "2026-11-08 14:48:12",
+      "event_type": "User Registration",
+      "user_email": "test_engineer@solariq.io",
+      "metadata": {
+        "role": "user"
+      },
+      "id": 58
+    },
+    {
+      "timestamp": "2026-11-08 14:48:12",
+      "event_type": "User Registration",
+      "user_email": "otp_test_user@solariq.io",
+      "metadata": {
+        "role": "user"
+      },
+      "id": 57
+    },
+    {
+      "timestamp": "2026-11-08 14:48:11",
+      "event_type": "Analysis Run",
+      "user_email": "test_engineer@solariq.io",
+      "metadata": {},
+      "id": 56
+    },
+    {
+      "timestamp": "2026-11-08 14:47:31",
+      "event_type": "Report Created",
+      "user_email": "usera@solariq.io",
+      "metadata": {
+        "title": "User A Solar Audit Report"
+      },
+      "id": 55
+    },
+    {
+      "timestamp": "2026-11-08 14:47:30",
+      "event_type": "User Registration",
+      "user_email": "hacker@solariq.io",
+      "metadata": {
+        "role": "user"
+      },
+      "id": 54
+    },
+    {
+      "timestamp": "2026-11-08 14:47:30",
+      "event_type": "Location Preference Updated",
+      "user_email": "test_engineer@solariq.io",
+      "metadata": {
+        "location": "Kakkalapalli, Anantapur Mandal, Anantapur, Andhra Pradesh, India"
+      },
+      "id": 53
+    },
+    {
+      "timestamp": "2026-11-08 14:47:29",
+      "event_type": "Profile Photo Upload",
+      "user_email": "test_engineer@solariq.io",
+      "metadata": {},
+      "id": 52
+    },
+    {
+      "timestamp": "2026-11-08 14:47:29",
+      "event_type": "Account Status Toggle",
+      "user_email": "99240040247@klu.ac.in",
+      "metadata": {
+        "target_user": "test_engineer@solariq.io",
+        "new_status": "active"
+      },
+      "id": 51
+    },
+    {
+      "timestamp": "2026-11-08 14:47:29",
+      "event_type": "Account Status Toggle",
+      "user_email": "99240040247@klu.ac.in",
+      "metadata": {
+        "target_user": "test_engineer@solariq.io",
+        "new_status": "disabled"
+      },
+      "id": 50
+    },
+    {
+      "timestamp": "2026-11-08 14:47:29",
+      "event_type": "Profile Update",
+      "user_email": "test_engineer@solariq.io",
+      "metadata": {},
+      "id": 49
+    },
+    {
+      "timestamp": "2026-11-08 14:47:29",
+      "event_type": "Analysis Run",
+      "user_email": "usera@solariq.io",
+      "metadata": {},
+      "id": 48
+    },
+    {
+      "timestamp": "2026-11-08 14:47:28",
+      "event_type": "User Login",
+      "user_email": "99240040247@klu.ac.in",
+      "metadata": {
+        "role": "admin"
+      },
+      "id": 47
+    },
+    {
+      "timestamp": "2026-11-08 14:47:28",
+      "event_type": "User Login",
+      "user_email": "test_engineer@solariq.io",
+      "metadata": {
+        "role": "user"
+      },
+      "id": 46
+    },
+    {
+      "timestamp": "2026-11-08 14:47:28",
+      "event_type": "User Registration",
+      "user_email": "test_engineer@solariq.io",
+      "metadata": {
+        "role": "user"
+      },
+      "id": 45
+    },
+    {
+      "timestamp": "2026-11-08 14:47:27",
+      "event_type": "User Registration",
+      "user_email": "otp_test_user@solariq.io",
+      "metadata": {
+        "role": "user"
+      },
+      "id": 44
+    },
+    {
+      "timestamp": "2026-11-08 14:47:27",
+      "event_type": "Analysis Run",
+      "user_email": "test_engineer@solariq.io",
+      "metadata": {},
+      "id": 43
+    },
+    {
+      "timestamp": "2026-11-08 14:44:28",
+      "event_type": "User Registration",
+      "user_email": "otp_test_user@solariq.io",
+      "metadata": {
+        "role": "user"
+      },
+      "id": 42
+    },
+    {
+      "timestamp": "2026-11-08 14:44:28",
+      "event_type": "Analysis Run",
+      "user_email": "test_engineer@solariq.io",
+      "metadata": {},
+      "id": 41
+    },
+    {
+      "timestamp": "2026-11-08 14:42:48",
+      "event_type": "User Registration",
+      "user_email": "otp_test_user@solariq.io",
+      "metadata": {
+        "role": "user"
+      },
+      "id": 40
+    },
+    {
+      "timestamp": "2026-11-08 14:42:47",
+      "event_type": "Analysis Run",
+      "user_email": "test_engineer@solariq.io",
+      "metadata": {},
+      "id": 39
+    },
+    {
+      "timestamp": "2026-11-08 14:41:22",
+      "event_type": "User Registration",
+      "user_email": "otp_test_user@solariq.io",
+      "metadata": {
+        "role": "user"
+      },
+      "id": 38
+    },
+    {
+      "timestamp": "2026-11-08 14:41:22",
+      "event_type": "Analysis Run",
+      "user_email": "test_engineer@solariq.io",
+      "metadata": {},
+      "id": 37
+    },
+    {
+      "timestamp": "2026-11-08 14:39:17",
+      "event_type": "Location Preference Updated",
+      "user_email": "test_engineer@solariq.io",
+      "metadata": {
+        "location": "Kakkalapalli, Anantapur Mandal, Anantapur, Andhra Pradesh, India"
+      },
+      "id": 36
+    },
     {
       "timestamp": "2026-11-07 09:48:30",
       "event_type": "Report Created",
@@ -396,8 +740,8 @@
       "expires_at": "2099-01-01 00:00:00",
       "attempts": 0,
       "verified": true,
-      "created_at": "2026-11-07 09:48:23",
-      "verified_at": "2026-11-07 09:48:23"
+      "created_at": "2026-11-08 14:48:11",
+      "verified_at": "2026-11-08 14:48:11"
     },
     {
       "email": "test_engineer@solariq.io",
@@ -405,8 +749,8 @@
       "expires_at": "2099-01-01 00:00:00",
       "attempts": 0,
       "verified": true,
-      "created_at": "2026-11-07 09:48:24",
-      "verified_at": "2026-11-07 09:48:24"
+      "created_at": "2026-11-08 14:48:12",
+      "verified_at": "2026-11-08 14:48:12"
     },
     {
       "email": "usera@solariq.io",
@@ -414,8 +758,8 @@
       "expires_at": "2099-01-01 00:00:00",
       "attempts": 0,
       "verified": true,
-      "created_at": "2026-11-07 09:48:25",
-      "verified_at": "2026-11-07 09:48:25"
+      "created_at": "2026-11-08 14:48:13",
+      "verified_at": "2026-11-08 14:48:13"
     },
     {
       "email": "userb@solariq.io",
@@ -423,8 +767,8 @@
       "expires_at": "2099-01-01 00:00:00",
       "attempts": 0,
       "verified": true,
-      "created_at": "2026-11-07 09:48:25",
-      "verified_at": "2026-11-07 09:48:25"
+      "created_at": "2026-11-08 14:48:13",
+      "verified_at": "2026-11-08 14:48:13"
     },
     {
       "email": "hacker@solariq.io",
@@ -432,8 +776,9 @@
       "expires_at": "2099-01-01 00:00:00",
       "attempts": 0,
       "verified": true,
-      "created_at": "2026-11-07 09:48:30",
-      "verified_at": "2026-11-07 09:48:30"
+      "created_at": "2026-11-08 14:48:14",
+      "verified_at": "2026-11-08 14:48:15"
     }
-  ]
+  ],
+  "otps": []
 }

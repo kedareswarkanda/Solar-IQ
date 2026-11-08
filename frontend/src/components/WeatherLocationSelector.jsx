@@ -15,32 +15,17 @@ import {
   Loader2,
   X
 } from 'lucide-react';
-
-const EXACT_LOCATION_MAX_ACCURACY = 500;
-
-const DEFAULT_COUNTRIES = [
-  { code: 'IN', name: 'India' },
-  { code: 'US', name: 'United States' },
-  { code: 'ES', name: 'Spain' },
-  { code: 'EG', name: 'Egypt' },
-  { code: 'AU', name: 'Australia' }
-];
-
-const DEFAULT_STATES = [
-  'Andhra Pradesh', 'Telangana', 'Karnataka', 'Tamil Nadu', 'Maharashtra', 'Gujarat', 'Rajasthan', 'Delhi'
-];
-
-const DEFAULT_DISTRICTS = [
-  'Anantapur', 'Chittoor', 'Kurnool', 'Kadapa', 'Nellore', 'Guntur', 'Krishna', 'Visakhapatnam'
-];
-
-const DEFAULT_MANDALS = [
-  'Anantapur', 'Bukkarayasamudram', 'Garladinne', 'Kudair', 'Singanamala', 'Atmakur', 'Dharmavaram'
-];
-
-const DEFAULT_VILLAGES = [
-  'Anantapur Urban / Town', 'Kakkalapalli', 'Rudrampeta', 'Alamuru', 'Papampeta', 'Rapthadu', 'Kudair'
-];
+import {
+  COUNTRIES,
+  KNOWN_COORDINATES,
+  getHierarchyLabels,
+  getStatesList,
+  getDistrictsList,
+  getMandalsList,
+  getVillagesList,
+  resolveKnownCoordinates,
+  searchLocalLocations
+} from '../data/locationData';
 
 // Direct IP Geolocation Fallback when browser GPS is blocked, denied or unavailable
 async function safeDetectLocationViaIp() {
@@ -56,8 +41,8 @@ async function safeDetectLocationViaIp() {
       const country = d.countryName || 'India';
       const state = d.principalSubdivision || '';
       const locality = d.locality || d.city || mandal || district;
-      const lat = typeof d.latitude === 'number' ? d.latitude : 14.6819;
-      const lon = typeof d.longitude === 'number' ? d.longitude : 77.6006;
+      const lat = typeof d.latitude === 'number' ? d.latitude : 10.3833;
+      const lon = typeof d.longitude === 'number' ? d.longitude : 78.8001;
       return {
         latitude: lat,
         longitude: lon,
@@ -83,6 +68,25 @@ async function safeDetectLocationViaIp() {
 
 // Resilient reverse geocoding with direct client-side open API fallbacks
 async function safeReverseGeocode(lat, lon, accuracy = 0) {
+  // Priority 0: Instant match against known coordinates for zero latency and offline precision
+  for (const item of Object.values(KNOWN_COORDINATES)) {
+    if (Math.abs(item.lat - lat) < 0.05 && Math.abs(item.lon - lon) < 0.05) {
+      return {
+        country: item.country || 'India',
+        country_code: item.country === 'India' ? 'IN' : item.country === 'United Kingdom' ? 'GB' : item.country === 'Spain' ? 'ES' : item.country === 'Egypt' ? 'EG' : 'US',
+        state: item.state || '',
+        district: item.district || '',
+        subdistrict: item.mandal || '',
+        subdistrict_type: item.country === 'India' ? 'Taluk' : 'District',
+        mandal: item.mandal || '',
+        village: item.village || '',
+        locality: item.village || '',
+        display_name: `${item.village || item.mandal}, ${item.district || item.state}, ${item.country}`,
+        source: 'gps'
+      };
+    }
+  }
+
   try {
     const revRes = await axios.get(`/api/location/reverse-geocode?lat=${lat}&lon=${lon}&accuracy=${accuracy}`);
     if (revRes.data && revRes.data.status !== 'error' && typeof revRes.data === 'object') {
@@ -243,19 +247,19 @@ export default function WeatherLocationSelector({
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Geographic Hierarchy State with resilient defaults
-  const [countries, setCountries] = useState(DEFAULT_COUNTRIES);
-  const [states, setStates] = useState(DEFAULT_STATES);
-  const [districts, setDistricts] = useState(DEFAULT_DISTRICTS);
-  const [mandals, setMandals] = useState(DEFAULT_MANDALS);
-  const [villages, setVillages] = useState(DEFAULT_VILLAGES);
-
   // Selected Filter Values
-  const [selectedCountry, setSelectedCountry] = useState('India');
-  const [selectedState, setSelectedState] = useState('Andhra Pradesh');
-  const [selectedDistrict, setSelectedDistrict] = useState('Anantapur');
-  const [selectedMandal, setSelectedMandal] = useState('Anantapur');
-  const [selectedVillage, setSelectedVillage] = useState('Anantapur Urban / Town');
+  const [selectedCountry, setSelectedCountry] = useState(() => currentLocation?.country || 'India');
+  const [selectedState, setSelectedState] = useState(() => currentLocation?.state || 'Tamil Nadu');
+  const [selectedDistrict, setSelectedDistrict] = useState(() => currentLocation?.district || (currentLocation?.state === 'Tamil Nadu' ? 'Pudukkottai' : 'Anantapur'));
+  const [selectedMandal, setSelectedMandal] = useState(() => currentLocation?.mandal || currentLocation?.subdistrict || (selectedDistrict === 'Pudukkottai' ? 'Pudukkottai' : 'Anantapur'));
+  const [selectedVillage, setSelectedVillage] = useState(() => currentLocation?.village || currentLocation?.locality || (selectedDistrict === 'Pudukkottai' ? 'Pudukkottai Town' : 'Anantapur Urban / Town'));
+
+  // Geographic Hierarchy State with immediate authoritative local values
+  const [countries, setCountries] = useState(COUNTRIES);
+  const [states, setStates] = useState(() => getStatesList(selectedCountry));
+  const [districts, setDistricts] = useState(() => getDistrictsList(selectedCountry, selectedState));
+  const [mandals, setMandals] = useState(() => getMandalsList(selectedCountry, selectedState, selectedDistrict));
+  const [villages, setVillages] = useState(() => getVillagesList(selectedCountry, selectedState, selectedDistrict, selectedMandal));
 
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -271,6 +275,9 @@ export default function WeatherLocationSelector({
   
   const [pendingGpsLocation, setPendingGpsLocation] = useState(null);
 
+  // Country dynamic labels (State/UT vs Autonomous Community vs Governorate vs Region)
+  const hierarchyLabels = getHierarchyLabels(selectedCountry);
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -281,90 +288,29 @@ export default function WeatherLocationSelector({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    axios.get('/api/location/countries')
-      .then(res => {
-        if (Array.isArray(res.data) && res.data.length > 0) {
-          setCountries(res.data);
-        }
-      })
-      .catch(err => console.warn('Using default countries:', err.message));
-  }, []);
-
+  // Sync with currentLocation prop when it updates
   useEffect(() => {
     if (currentLocation) {
-      if (currentLocation.country) setSelectedCountry(currentLocation.country);
-      if (currentLocation.state) setSelectedState(currentLocation.state);
-      if (currentLocation.district) setSelectedDistrict(currentLocation.district);
-      if (currentLocation.mandal || currentLocation.subdistrict) setSelectedMandal(currentLocation.mandal || currentLocation.subdistrict);
-      if (currentLocation.village || currentLocation.locality) setSelectedVillage(currentLocation.village || currentLocation.locality);
+      const c = currentLocation.country || 'India';
+      const s = currentLocation.state || '';
+      const d = currentLocation.district || '';
+      const m = currentLocation.mandal || currentLocation.subdistrict || '';
+      const v = currentLocation.village || currentLocation.locality || '';
+
+      setSelectedCountry(c);
+      setSelectedState(s);
+      setSelectedDistrict(d);
+      setSelectedMandal(m);
+      setSelectedVillage(v);
+
+      setStates(getStatesList(c));
+      setDistricts(getDistrictsList(c, s));
+      setMandals(getMandalsList(c, s, d));
+      setVillages(getVillagesList(c, s, d, m));
     }
   }, [currentLocation]);
 
-  useEffect(() => {
-    if (!selectedCountry) return;
-    setLoadingStep('Loading states...');
-    axios.get(`/api/location/states?country=${encodeURIComponent(selectedCountry)}`)
-      .then(res => {
-        if (Array.isArray(res.data) && res.data.length > 0) {
-          setStates(res.data);
-        }
-        setLoadingStep('');
-      })
-      .catch(err => {
-        console.warn('Using default states:', err.message);
-        setLoadingStep('');
-      });
-  }, [selectedCountry]);
-
-  useEffect(() => {
-    if (!selectedCountry || !selectedState) return;
-    setLoadingStep('Loading districts...');
-    axios.get(`/api/location/districts?country=${encodeURIComponent(selectedCountry)}&state=${encodeURIComponent(selectedState)}`)
-      .then(res => {
-        if (Array.isArray(res.data) && res.data.length > 0) {
-          setDistricts(res.data);
-        }
-        setLoadingStep('');
-      })
-      .catch(err => {
-        console.warn('Using default districts:', err.message);
-        setLoadingStep('');
-      });
-  }, [selectedCountry, selectedState]);
-
-  useEffect(() => {
-    if (!selectedCountry || !selectedState || !selectedDistrict) return;
-    setLoadingStep('Loading mandals...');
-    axios.get(`/api/location/mandals?country=${encodeURIComponent(selectedCountry)}&state=${encodeURIComponent(selectedState)}&district=${encodeURIComponent(selectedDistrict)}`)
-      .then(res => {
-        if (Array.isArray(res.data) && res.data.length > 0) {
-          setMandals(res.data);
-        }
-        setLoadingStep('');
-      })
-      .catch(err => {
-        console.warn('Using default mandals:', err.message);
-        setLoadingStep('');
-      });
-  }, [selectedCountry, selectedState, selectedDistrict]);
-
-  useEffect(() => {
-    if (!selectedCountry || !selectedState || !selectedDistrict || !selectedMandal) return;
-    setLoadingStep('Loading villages...');
-    axios.get(`/api/location/villages?country=${encodeURIComponent(selectedCountry)}&state=${encodeURIComponent(selectedState)}&district=${encodeURIComponent(selectedDistrict)}&mandal=${encodeURIComponent(selectedMandal)}`)
-      .then(res => {
-        if (Array.isArray(res.data) && res.data.length > 0) {
-          setVillages(res.data);
-        }
-        setLoadingStep('');
-      })
-      .catch(err => {
-        console.warn('Using default villages:', err.message);
-        setLoadingStep('');
-      });
-  }, [selectedCountry, selectedState, selectedDistrict, selectedMandal]);
-
+  // Live Location Search with Local Known DB + Open-Meteo fallback
   useEffect(() => {
     if (!searchQuery || searchQuery.trim().length < 2) {
       setSearchResults([]);
@@ -372,6 +318,14 @@ export default function WeatherLocationSelector({
     }
     const timer = setTimeout(async () => {
       setIsSearching(true);
+
+      // Priority 1: Check instant local known coordinates database
+      const localMatches = searchLocalLocations(searchQuery);
+      if (localMatches && localMatches.length > 0) {
+        setSearchResults(localMatches);
+      }
+
+      // Priority 2: Query backend search API if available
       try {
         const res = await axios.get(`/api/location/search?q=${encodeURIComponent(searchQuery)}`);
         if (Array.isArray(res.data) && res.data.length > 0) {
@@ -379,18 +333,16 @@ export default function WeatherLocationSelector({
           setIsSearching(false);
           return;
         }
-      } catch (err) {
-        console.warn('Backend search unavailable, querying Open-Meteo geocoding:', err.message);
-      }
+      } catch (err) {}
 
-      // Direct client search via Open-Meteo Geocoding
+      // Priority 3: Direct client search via Open-Meteo Geocoding
       try {
         const omGeoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(searchQuery)}&count=6&language=en&format=json`);
         if (omGeoRes.ok) {
           const omData = await omGeoRes.json();
           if (Array.isArray(omData.results)) {
             const formatted = omData.results.map(r => ({
-              display_name: `${r.name}${r.admin1 ? ', ' + r.admin1 : ''}, ${r.country || ''}`,
+              display_name: `${r.name}${r.admin2 ? ', ' + r.admin2 : ''}${r.admin1 ? ', ' + r.admin1 : ''}, ${r.country || ''}`,
               country: r.country || 'India',
               state: r.admin1 || '',
               district: r.admin2 || r.admin1 || r.name,
@@ -400,22 +352,36 @@ export default function WeatherLocationSelector({
               longitude: r.longitude,
               source: 'search'
             }));
-            setSearchResults(formatted);
+            // Combine with local matches avoiding duplicates
+            const existingNames = new Set(localMatches.map(m => m.display_name));
+            const combined = [...localMatches];
+            formatted.forEach(f => {
+              if (!existingNames.has(f.display_name)) {
+                combined.push(f);
+              }
+            });
+            setSearchResults(combined.slice(0, 8));
           }
         }
       } catch (e) {
         console.warn('Client search fallback failed:', e.message);
       }
       setIsSearching(false);
-    }, 300);
+    }, 250);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // CASCADING HANDLERS WITH ZERO CROSS-CONTAMINATION
   const handleCountryChange = (countryName) => {
     setSelectedCountry(countryName);
+    const newStates = getStatesList(countryName);
+    setStates(newStates);
     setSelectedState('');
+    setDistricts([]);
     setSelectedDistrict('');
+    setMandals([]);
     setSelectedMandal('');
+    setVillages([]);
     setSelectedVillage('');
     setErrorMessage('');
     setWarningMessage('');
@@ -424,8 +390,12 @@ export default function WeatherLocationSelector({
 
   const handleStateChange = (stateName) => {
     setSelectedState(stateName);
+    const newDistricts = getDistrictsList(selectedCountry, stateName);
+    setDistricts(newDistricts);
     setSelectedDistrict('');
+    setMandals([]);
     setSelectedMandal('');
+    setVillages([]);
     setSelectedVillage('');
     setErrorMessage('');
     setWarningMessage('');
@@ -434,7 +404,10 @@ export default function WeatherLocationSelector({
 
   const handleDistrictChange = (districtName) => {
     setSelectedDistrict(districtName);
+    const newMandals = getMandalsList(selectedCountry, selectedState, districtName);
+    setMandals(newMandals);
     setSelectedMandal('');
+    setVillages([]);
     setSelectedVillage('');
     setErrorMessage('');
     setWarningMessage('');
@@ -443,6 +416,8 @@ export default function WeatherLocationSelector({
 
   const handleMandalChange = (mandalName) => {
     setSelectedMandal(mandalName);
+    const newVillages = getVillagesList(selectedCountry, selectedState, selectedDistrict, mandalName);
+    setVillages(newVillages);
     setSelectedVillage('');
     setErrorMessage('');
     setWarningMessage('');
@@ -456,6 +431,7 @@ export default function WeatherLocationSelector({
     setPendingGpsLocation(null);
   };
 
+  // Browser GPS Geolocation Handler
   const handleUseCurrentLocation = () => {
     setErrorMessage('');
     setWarningMessage('');
@@ -557,6 +533,7 @@ export default function WeatherLocationSelector({
     tryGetPosition(true);
   };
 
+  // Confirm Detected GPS Location
   const handleConfirmGpsLocation = async () => {
     if (!pendingGpsLocation) return;
     setLoadingStep("Fetching live local weather...");
@@ -568,6 +545,11 @@ export default function WeatherLocationSelector({
       if (pendingGpsLocation.district) setSelectedDistrict(pendingGpsLocation.district);
       if (pendingGpsLocation.mandal) setSelectedMandal(pendingGpsLocation.mandal);
       if (pendingGpsLocation.village) setSelectedVillage(pendingGpsLocation.village);
+
+      setStates(getStatesList(pendingGpsLocation.country));
+      setDistricts(getDistrictsList(pendingGpsLocation.country, pendingGpsLocation.state));
+      setMandals(getMandalsList(pendingGpsLocation.country, pendingGpsLocation.state, pendingGpsLocation.district));
+      setVillages(getVillagesList(pendingGpsLocation.country, pendingGpsLocation.state, pendingGpsLocation.district, pendingGpsLocation.mandal));
 
       try {
         await axios.post('/api/user/location-preference', pendingGpsLocation);
@@ -591,6 +573,7 @@ export default function WeatherLocationSelector({
     }
   };
 
+  // Confirm Search Result Selection
   const handleSelectSearchResult = async (result) => {
     try {
       setLoadingStep("Loading selected weather location...");
@@ -613,6 +596,12 @@ export default function WeatherLocationSelector({
       if (locationPref.district) setSelectedDistrict(locationPref.district);
       if (locationPref.mandal) setSelectedMandal(locationPref.mandal);
       if (locationPref.village) setSelectedVillage(locationPref.village);
+
+      setStates(getStatesList(locationPref.country));
+      setDistricts(getDistrictsList(locationPref.country, locationPref.state));
+      setMandals(getMandalsList(locationPref.country, locationPref.state, locationPref.district));
+      setVillages(getVillagesList(locationPref.country, locationPref.state, locationPref.district, locationPref.mandal));
+
       setSearchQuery('');
       setSearchResults([]);
       setPendingGpsLocation(null);
@@ -638,9 +627,14 @@ export default function WeatherLocationSelector({
     }
   };
 
+  // Apply Hierarchical Dropdown Selection
   const handleApplyCascadingLocation = async () => {
     if (!selectedCountry) {
       setErrorMessage("Please select a Country.");
+      return;
+    }
+    if (!selectedState) {
+      setErrorMessage(`Please select a ${hierarchyLabels.state}.`);
       return;
     }
     setErrorMessage('');
@@ -649,18 +643,34 @@ export default function WeatherLocationSelector({
     setLoadingStep("Resolving location & fetching real-time weather...");
 
     try {
-      let coords = { latitude: 14.6819, longitude: 77.6006 };
-      try {
-        const resolveRes = await axios.get(
-          `/api/location/resolve?country=${encodeURIComponent(selectedCountry)}&state=${encodeURIComponent(selectedState)}&district=${encodeURIComponent(selectedDistrict)}&mandal=${encodeURIComponent(selectedMandal)}&village=${encodeURIComponent(selectedVillage)}`
-        );
-        if (resolveRes.data && resolveRes.data.latitude) {
-          coords = resolveRes.data;
-        }
-      } catch (resolveErr) {
-        // Direct geocoding fallback via Open-Meteo
+      // Priority 1: Check known exact coordinates dictionary
+      let coords = resolveKnownCoordinates(
+        selectedCountry,
+        selectedState,
+        selectedDistrict,
+        selectedMandal,
+        selectedVillage
+      );
+
+      // Priority 2: Backend location resolve API
+      if (!coords) {
         try {
-          const qName = selectedVillage || selectedMandal || selectedDistrict || selectedState || selectedCountry;
+          const resolveRes = await axios.get(
+            `/api/location/resolve?country=${encodeURIComponent(selectedCountry)}&state=${encodeURIComponent(selectedState)}&district=${encodeURIComponent(selectedDistrict)}&mandal=${encodeURIComponent(selectedMandal)}&village=${encodeURIComponent(selectedVillage)}`
+          );
+          if (resolveRes.data && resolveRes.data.latitude) {
+            coords = { latitude: resolveRes.data.latitude, longitude: resolveRes.data.longitude };
+          }
+        } catch (resolveErr) {}
+      }
+
+      // Priority 3: Direct geocoding fallback via Open-Meteo
+      if (!coords) {
+        try {
+          const qName = [selectedVillage, selectedMandal, selectedDistrict, selectedState, selectedCountry]
+            .filter(Boolean)
+            .slice(0, 3)
+            .join(', ');
           const omGeoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(qName)}&count=1&language=en&format=json`);
           if (omGeoRes.ok) {
             const omGeo = await omGeoRes.json();
@@ -671,7 +681,15 @@ export default function WeatherLocationSelector({
         } catch (e) {}
       }
 
+      // Default safe coordinates if still unresolved
+      if (!coords) {
+        coords = { latitude: 10.3833, longitude: 78.8001 };
+      }
+
       const wData = await safeFetchLiveWeather(coords.latitude, coords.longitude);
+
+      const locNameParts = [selectedVillage, selectedMandal, selectedDistrict, selectedState, selectedCountry].filter(Boolean);
+      const displayName = locNameParts.join(', ');
 
       const locationPref = {
         country: selectedCountry,
@@ -681,7 +699,7 @@ export default function WeatherLocationSelector({
         village: selectedVillage || selectedMandal,
         latitude: coords.latitude,
         longitude: coords.longitude,
-        display_name: `${selectedVillage || selectedMandal || selectedDistrict}, ${selectedState || selectedCountry}, ${selectedCountry}`,
+        display_name: displayName,
         source: "manual"
       };
 
@@ -707,8 +725,8 @@ export default function WeatherLocationSelector({
   };
 
   const handleRefreshWeather = async () => {
-    const lat = currentLocation?.latitude || 14.6819;
-    const lon = currentLocation?.longitude || 77.6006;
+    const lat = currentLocation?.latitude || 10.3833;
+    const lon = currentLocation?.longitude || 78.8001;
     setIsRefreshingWeather(true);
     try {
       const wData = await safeFetchLiveWeather(lat, lon);
@@ -722,8 +740,8 @@ export default function WeatherLocationSelector({
     }
   };
 
-  const activeVillageDisplay = currentLocation?.village || selectedVillage || 'Anantapur Urban';
-  const activeStateDisplay = currentLocation?.state || selectedState || 'Andhra Pradesh';
+  const activeVillageDisplay = currentLocation?.village || selectedVillage || 'Pudukkottai Town';
+  const activeStateDisplay = currentLocation?.state || selectedState || 'Tamil Nadu';
   const locationSource = currentLocation?.source || 'manual';
 
   let sourceBadgeText = 'SELECTED';
@@ -776,7 +794,6 @@ export default function WeatherLocationSelector({
       {isOpen && (
         <div className="fixed inset-x-0 top-16 mx-auto w-[min(92vw,400px)] max-h-[85vh] overflow-y-auto sm:absolute sm:inset-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-[420px] sm:max-h-none sm:overflow-visible bg-[#FFFDFC] rounded-2xl shadow-2xl border border-[#EED6CC] z-50 p-4 text-[#4A3030] text-xs animate-fade-in">
 
-          
           {/* Popover Header */}
           <div className="flex items-center justify-between border-b border-[#EED6CC] pb-3 mb-3">
             <div className="flex items-center space-x-2">
@@ -901,7 +918,7 @@ export default function WeatherLocationSelector({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="🔍 Search location (e.g. Bangalore, Anantapur, Kakkalapalli)..."
+                placeholder="🔍 Search location (e.g. Pudukkottai, Kurnool, London, Madrid)..."
                 className="w-full pl-8 pr-3 py-2 bg-[#FBF3EA] border border-[#EED6CC] rounded-xl text-xs font-semibold text-[#4A3030] focus:outline-none focus:ring-1 focus:ring-[#E86A6A] focus:bg-[#FFFDFC]"
               />
               {isSearching && <Loader2 className="w-3.5 h-3.5 text-[#8F2635] animate-spin absolute right-3 top-2.5" />}
@@ -917,7 +934,7 @@ export default function WeatherLocationSelector({
                     className="w-full text-left px-3 py-2 hover:bg-[#FBE1E1] text-[11px] font-semibold text-[#4A3030] border-b border-[#EED6CC] last:border-0 transition-colors flex items-center justify-between cursor-pointer"
                   >
                     <span className="truncate pr-2">{res.display_name}</span>
-                    <span className="text-[9px] bg-[#E86A6A] text-white font-extrabold px-1.5 py-0.5 rounded">Select</span>
+                    <span className="text-[9px] bg-[#E86A6A] text-white font-extrabold px-1.5 py-0.5 rounded shrink-0">Select</span>
                   </button>
                 ))}
               </div>
@@ -930,8 +947,9 @@ export default function WeatherLocationSelector({
             <div className="flex-1 border-t border-[#EED6CC]"></div>
           </div>
 
-          {/* Option 3: Cascading Filters */}
+          {/* Option 3: Cascading Filters with Country-Specific Labels */}
           <div className="space-y-2.5 mb-4">
+            {/* Level 1: Country */}
             <div>
               <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#8F2635] mb-1">Country</label>
               <select
@@ -939,67 +957,78 @@ export default function WeatherLocationSelector({
                 onChange={(e) => handleCountryChange(e.target.value)}
                 className="w-full bg-[#FBF3EA] border border-[#EED6CC] text-[#4A3030] rounded-xl px-3 py-1.5 font-bold text-xs focus:outline-none focus:ring-1 focus:ring-[#E86A6A]"
               >
-                {(Array.isArray(countries) ? countries : DEFAULT_COUNTRIES).map((c) => (
+                {countries.map((c) => (
                   <option key={c.code || c.name} value={c.name}>{c.name}</option>
                 ))}
               </select>
             </div>
 
+            {/* Level 2: State / Region / Governorate / Autonomous Community */}
             <div>
-              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#8F2635] mb-1">State / Province</label>
+              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#8F2635] mb-1">
+                {hierarchyLabels.state}
+              </label>
               <select
                 value={selectedState}
                 onChange={(e) => handleStateChange(e.target.value)}
-                disabled={!(Array.isArray(states) && states.length)}
-                className="w-full bg-[#FBF3EA] border border-[#EED6CC] text-[#4A3030] rounded-xl px-3 py-1.5 font-bold text-xs focus:outline-none focus:ring-1 focus:ring-[#E86A6A] disabled:opacity-50"
+                className="w-full bg-[#FBF3EA] border border-[#EED6CC] text-[#4A3030] rounded-xl px-3 py-1.5 font-bold text-xs focus:outline-none focus:ring-1 focus:ring-[#E86A6A]"
               >
-                <option value="" disabled>Select State...</option>
-                {(Array.isArray(states) ? states : DEFAULT_STATES).map((st) => (
+                <option value="" disabled>Select {hierarchyLabels.state}...</option>
+                {states.map((st) => (
                   <option key={st} value={st}>{st}</option>
                 ))}
               </select>
             </div>
 
+            {/* Level 3: District / County / Province */}
             <div>
-              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#8F2635] mb-1">District / County</label>
+              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#8F2635] mb-1">
+                {hierarchyLabels.district}
+              </label>
               <select
                 value={selectedDistrict}
                 onChange={(e) => handleDistrictChange(e.target.value)}
-                disabled={!(Array.isArray(districts) && districts.length)}
+                disabled={!selectedState || districts.length === 0}
                 className="w-full bg-[#FBF3EA] border border-[#EED6CC] text-[#4A3030] rounded-xl px-3 py-1.5 font-bold text-xs focus:outline-none focus:ring-1 focus:ring-[#E86A6A] disabled:opacity-50"
               >
-                <option value="" disabled>Select District...</option>
-                {(Array.isArray(districts) ? districts : DEFAULT_DISTRICTS).map((d) => (
+                <option value="" disabled>Select {hierarchyLabels.district}...</option>
+                {districts.map((d) => (
                   <option key={d} value={d}>{d}</option>
                 ))}
               </select>
             </div>
 
+            {/* Level 4: Subdistrict / Taluk / Mandal / Borough / Municipality */}
             <div>
-              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#8F2635] mb-1">Mandal / Taluk / Sub-district</label>
+              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#8F2635] mb-1">
+                {hierarchyLabels.mandal}
+              </label>
               <select
                 value={selectedMandal}
                 onChange={(e) => handleMandalChange(e.target.value)}
-                disabled={!(Array.isArray(mandals) && mandals.length)}
+                disabled={!selectedDistrict || mandals.length === 0}
                 className="w-full bg-[#FBF3EA] border border-[#EED6CC] text-[#4A3030] rounded-xl px-3 py-1.5 font-bold text-xs focus:outline-none focus:ring-1 focus:ring-[#E86A6A] disabled:opacity-50"
               >
-                <option value="" disabled>Select Mandal / Sub-district...</option>
-                {(Array.isArray(mandals) ? mandals : DEFAULT_MANDALS).map((m) => (
+                <option value="" disabled>Select {hierarchyLabels.mandal}...</option>
+                {mandals.map((m) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
               </select>
             </div>
 
+            {/* Level 5: Village / Locality / Town */}
             <div>
-              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#8F2635] mb-1">Village / Locality</label>
+              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-[#8F2635] mb-1">
+                {hierarchyLabels.village}
+              </label>
               <select
                 value={selectedVillage}
                 onChange={(e) => handleVillageChange(e.target.value)}
-                disabled={!(Array.isArray(villages) && villages.length)}
+                disabled={!selectedMandal || villages.length === 0}
                 className="w-full bg-[#FBF3EA] border border-[#EED6CC] text-[#4A3030] rounded-xl px-3 py-1.5 font-bold text-xs focus:outline-none focus:ring-1 focus:ring-[#E86A6A] disabled:opacity-50"
               >
-                <option value="" disabled>Select Village / Locality...</option>
-                {(Array.isArray(villages) ? villages : DEFAULT_VILLAGES).map((v) => (
+                <option value="" disabled>Select {hierarchyLabels.village}...</option>
+                {villages.map((v) => (
                   <option key={v} value={v}>{v}</option>
                 ))}
               </select>
@@ -1018,7 +1047,7 @@ export default function WeatherLocationSelector({
           {/* Confirm Selection Button */}
           <button
             onClick={handleApplyCascadingLocation}
-            disabled={!selectedCountry || !!loadingStep}
+            disabled={!selectedCountry || !selectedState || !!loadingStep}
             className="w-full py-2.5 bg-[#8F2635] hover:bg-[#4A3030] text-white rounded-xl font-extrabold text-xs transition-all shadow-xs flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 mb-3"
           >
             <Check className="w-4 h-4 text-white" />

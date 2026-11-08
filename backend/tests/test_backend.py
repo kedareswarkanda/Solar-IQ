@@ -18,6 +18,7 @@ from ml.model import ml_manager
 from optimization.optimizer import optimize_panel_configuration
 from services.diagnostics import calculate_solar_health_score, simulate_daily_profile
 from services.carbon import calculate_carbon_offset
+from services.email_service import email_service
 
 db_manager.seed_default_accounts(hash_password)
 client = TestClient(app)
@@ -126,7 +127,7 @@ def test_api_analyze_endpoint():
         "soiling": 3.0,
         "shading": 5.0
     }
-    response = client.post("/api/analyze", json=payload)
+    response = client.post("/api/analyze", json=payload, headers={"X-SolarIQ-User-Email": "test_engineer@solariq.io"})
     assert response.status_code == 200
     data = response.json()
     assert "ai_power_w" in data
@@ -137,14 +138,19 @@ def test_email_otp_flow():
     db_manager.delete_user_account("otp_test_user@solariq.io")
     email = "otp_test_user@solariq.io"
 
-    # 1. Registration without verification -> Must be rejected (400)
-    unverified_reg = client.post("/api/auth/register", json={
-        "name": "OTP Test User",
-        "email": email,
-        "password": "password123"
-    })
-    assert unverified_reg.status_code == 400
-    assert "verify your email" in unverified_reg.json()["detail"].lower()
+    # 1. Registration without verification -> Must be rejected (400) when email verification is required
+    orig_is_configured = email_service.is_email_configured
+    email_service.is_email_configured = lambda: True
+    try:
+        unverified_reg = client.post("/api/auth/register", json={
+            "name": "OTP Test User",
+            "email": email,
+            "password": "password123"
+        })
+        assert unverified_reg.status_code == 400
+        assert "verify your email" in unverified_reg.json()["detail"].lower()
+    finally:
+        email_service.is_email_configured = orig_is_configured
 
     # 2. Test send-otp behavior (returns 503 if SMTP is not configured in .env, or 200 if configured)
     send_res = client.post("/api/auth/send-otp", json={"email": email})
@@ -325,13 +331,57 @@ def test_location_and_weather_endpoints():
     res_s = client.get("/api/location/states?country=India")
     assert res_s.status_code == 200
     assert "Andhra Pradesh" in res_s.json()
+    assert "Tamil Nadu" in res_s.json()
 
-    # 3. Districts for Andhra Pradesh
+    # 3. Districts for Tamil Nadu (all 38 districts, zero Andhra Pradesh cross-contamination)
+    res_tn = client.get("/api/location/districts?country=India&state=Tamil%20Nadu")
+    assert res_tn.status_code == 200
+    tn_districts = res_tn.json()
+    assert len(tn_districts) == 38
+    assert "Pudukkottai" in tn_districts
+    assert "Chennai" in tn_districts
+    assert "Anantapur" not in tn_districts
+    assert "Chittoor" not in tn_districts
+    assert "Kurnool" not in tn_districts
+
+    # 4. Districts for Andhra Pradesh
     res_d = client.get("/api/location/districts?country=India&state=Andhra%20Pradesh")
     assert res_d.status_code == 200
     assert "Anantapur" in res_d.json()
+    assert "Pudukkottai" not in res_d.json()
 
-    # 4. Mandals for Anantapur
+    # 5. Mandals for Pudukkottai, Tamil Nadu
+    res_tn_m = client.get("/api/location/mandals?country=India&state=Tamil%20Nadu&district=Pudukkottai")
+    assert res_tn_m.status_code == 200
+    assert "Pudukkottai" in res_tn_m.json()
+    assert "Alangudi" in res_tn_m.json()
+    assert "Aranthangi" in res_tn_m.json()
+
+    # 6. Global countries: UK, Spain, Egypt
+    res_uk_s = client.get("/api/location/states?country=United%20Kingdom")
+    assert res_uk_s.status_code == 200
+    assert "England" in res_uk_s.json()
+    assert "Scotland" in res_uk_s.json()
+
+    res_uk_d = client.get("/api/location/districts?country=United%20Kingdom&state=England")
+    assert res_uk_d.status_code == 200
+    assert "Greater London" in res_uk_d.json()
+
+    res_es_s = client.get("/api/location/states?country=Spain")
+    assert res_es_s.status_code == 200
+    assert "Community of Madrid" in res_es_s.json()
+    assert "Catalonia" in res_es_s.json()
+
+    res_eg_s = client.get("/api/location/states?country=Egypt")
+    assert res_eg_s.status_code == 200
+    assert "Cairo Governorate" in res_eg_s.json()
+
+    # 7. Coordinates resolve for Pudukkottai
+    res_res = client.get("/api/location/resolve?country=India&state=Tamil%20Nadu&district=Pudukkottai&mandal=Pudukkottai&village=Pudukkottai%20Town")
+    assert res_res.status_code == 200
+    assert abs(res_res.json()["latitude"] - 10.3833) < 0.01
+
+    # 8. Mandals for Anantapur
     res_m = client.get("/api/location/mandals?country=India&state=Andhra%20Pradesh&district=Anantapur")
     assert res_m.status_code == 200
     assert "Anantapur" in res_m.json()
@@ -460,14 +510,14 @@ def test_registration_validation_and_security_controls():
     assert res_mismatch.status_code == 400
     assert "passwords do not match" in res_mismatch.json()["detail"].lower()
 
-    # 2. Test registration with password < 6 characters -> 400
+    # 2. Test registration with password < 6 characters -> 400 or 422 (Pydantic validation error)
     res_short = client.post("/api/auth/register", json={
         "name": "Short Password Test",
         "email": "short@test.com",
         "password": "123",
         "confirm_password": "123"
     })
-    assert res_short.status_code == 400
+    assert res_short.status_code in (400, 422)
 
     # 3. Test attempting to register the administrator email through public registration -> 400
     res_admin_reg = client.post("/api/auth/register", json={

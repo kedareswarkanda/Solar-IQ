@@ -289,6 +289,7 @@ class SolarIQDatabaseManager:
                 self.db.users.delete_one({"email": clean_email})
                 self.db.history.delete_many({"user_email": clean_email})
                 self.db.scenarios.delete_many({"user_email": clean_email})
+                self.db.email_otps.delete_many({"email": clean_email})
                 return True
             except Exception as e:
                 print(f"[SolarIQ DB] Mongo delete user failed: {e}")
@@ -297,6 +298,7 @@ class SolarIQDatabaseManager:
         store["users"] = [u for u in store.get("users", []) if u.get("email", "").lower() != clean_email]
         store["history"] = [h for h in store.get("history", []) if h.get("user_email", "").lower() != clean_email]
         store["scenarios"] = [s for s in store.get("scenarios", []) if s.get("user_email", "").lower() != clean_email]
+        store["email_otps"] = [o for o in store.get("email_otps", []) if o.get("email", "").lower() != clean_email]
         self._write_fallback(store)
         return True
 
